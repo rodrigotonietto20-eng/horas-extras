@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Horas Extras — Rede Sander</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230d47a1'/%3E%3Ccircle cx='50' cy='54' r='30' fill='none' stroke='%23ffffff' stroke-width='6'/%3E%3Cline x1='50' y1='54' x2='50' y2='34' stroke='%23ffffff' stroke-width='6' stroke-linecap='round'/%3E%3Cline x1='50' y1='54' x2='64' y2='60' stroke='%23ffffff' stroke-width='6' stroke-linecap='round'/%3E%3Crect x='42' y='14' width='16' height='8' rx='4' fill='%23ffffff'/%3E%3C/svg%3E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Horas Extras">
+<meta name="theme-color" content="#0d47a1">
+<meta name="mobile-web-app-capable" content="yes">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --pri:#0d47a1;--pri2:#1565c0;--pri3:#1e88e5;--pri-light:#e3f2fd;--pri-deep:#082a5e;
+  --cinza:#607d8b;--cinza2:#eceff1;--cinza3:#b0bec5;
+  --laranja:#e65100;--verde:#2e7d32;--vermelho:#b71c1c;--roxo:#6a1b9a;
+  --txt:#212121;--txt2:#546e7a;
+  --radius:16px;--shadow:0 3px 14px rgba(10,30,55,.10);--shadow-lg:0 10px 28px rgba(10,25,45,.16);
+}
+body{font-family:'Segoe UI',sans-serif;background:linear-gradient(180deg,#eef2f7,#e7ecf2 55%,#eef2f7);color:var(--txt);min-height:100vh;padding-bottom:76px}
+.hidden{display:none!important}
+
+/* HEADER */
+.header{position:sticky;top:0;z-index:100;background:linear-gradient(135deg,var(--pri3),var(--pri));color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 16px rgba(10,30,55,.28)}
+.header h1{font-size:16px;font-weight:700;flex:1;letter-spacing:.2px}
+.header .user-badge{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.28);border-radius:20px;padding:5px 13px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 2px 6px rgba(0,0,0,.12)}
+.btn-back{background:none;border:none;color:#fff;font-size:22px;cursor:pointer;line-height:1}
+
+/* BOTTOM NAV */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:100;background:#fff;border-top:1px solid #eceff1;display:flex;box-shadow:0 -4px 18px rgba(0,0,0,.08)}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px;border:none;background:none;color:var(--txt2);font-size:10px;font-weight:600;gap:2px;cursor:pointer;transition:color .15s;position:relative}
+.nav-btn.active{color:var(--pri)}
+.nav-ico{font-size:19px;padding:4px 10px;border-radius:11px;transition:all .15s}
+.nav-btn.active .nav-ico{background:var(--pri-light);box-shadow:0 2px 0 #bbdefb,inset 0 1px 0 rgba(255,255,255,.6)}
+.notif-badge{position:absolute;top:2px;right:14px;background:#e53935;color:#fff;border-radius:10px;font-size:9px;font-weight:800;padding:1px 5px;min-width:15px;text-align:center;line-height:14px}
+
+/* CARDS */
+.card{background:#fff;border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);margin-bottom:12px}
+.card-title{font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px}
+
+/* BUTTONS — estilo 3D "pressionável" */
+.btn{--lip:0 4px 0 var(--pri-deep);--lipA:0 1px 0 var(--pri-deep);display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:12px 20px;border-radius:var(--radius);border:none;font-size:14px;font-weight:700;cursor:pointer;box-shadow:var(--lip),0 6px 14px rgba(10,30,55,.2);transition:transform .08s ease,box-shadow .08s ease}
+.btn:active{transform:translateY(3px);box-shadow:var(--lipA),0 2px 6px rgba(10,30,55,.16)}
+.btn-primary{background:linear-gradient(180deg,var(--pri3),var(--pri2));color:#fff}
+.btn-secondary{background:linear-gradient(180deg,#fff,var(--pri-light));color:var(--pri);--lip:0 4px 0 #bfd9f0;--lipA:0 1px 0 #bfd9f0}
+.btn-ok{background:linear-gradient(180deg,#66bb6a,#2e7d32);color:#fff;--lip:0 4px 0 #1b5e20;--lipA:0 1px 0 #1b5e20}
+.btn-danger{background:linear-gradient(180deg,#fff,#ffebee);color:var(--vermelho);--lip:0 4px 0 #ffb4bb;--lipA:0 1px 0 #ffb4bb}
+.btn-full{width:100%}
+.btn-sm{padding:8px 14px;font-size:12.5px;border-radius:11px;--lip:0 3px 0 var(--pri-deep);--lipA:0 1px 0 var(--pri-deep)}
+.btn-sm.btn-secondary{--lip:0 3px 0 #bfd9f0;--lipA:0 1px 0 #bfd9f0}
+.btn-sm.btn-danger{--lip:0 3px 0 #ffb4bb;--lipA:0 1px 0 #ffb4bb}
+.btn-sm.btn-ok{--lip:0 3px 0 #1b5e20;--lipA:0 1px 0 #1b5e20}
+.btn-sm:active{transform:translateY(2px)}
+.btn-row{display:flex;gap:8px;margin-top:10px}
+.btn-row .btn{flex:1}
+
+/* FORM */
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:11px;font-weight:700;color:var(--txt2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px}
+.form-group input,.form-group select,.form-group textarea{width:100%;border:1.5px solid #ddd;border-radius:8px;padding:10px 12px;font-size:14px;font-family:inherit;background:#fff;color:var(--txt);transition:border .15s}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:var(--pri3)}
+.form-group textarea{resize:vertical;min-height:70px}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
+
+/* SEARCH */
+.search-bar{display:flex;align-items:center;background:#fff;border-radius:10px;padding:9px 12px;margin-bottom:12px;border:1.5px solid #e0e0e0;gap:8px}
+.search-bar input{border:none;flex:1;font-size:14px;background:transparent;font-family:inherit}
+.search-bar input:focus{outline:none}
+
+/* SOLICITAÇÃO CARD */
+.sol-card{background:#fff;border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;box-shadow:var(--shadow);border-left:4px solid transparent}
+.sol-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+.sol-posto{font-weight:800;font-size:14px}
+.sol-func{font-size:13px;color:var(--txt);margin-top:2px}
+.sol-meta{font-size:12px;color:var(--txt2);margin-top:4px;line-height:1.5}
+.sol-motivo{font-size:12px;color:var(--txt2);margin-top:6px;font-style:italic;background:var(--cinza2);border-radius:8px;padding:8px 10px}
+.sol-obs-rejeicao{font-size:12px;color:var(--vermelho);margin-top:6px;background:#ffebee;border-radius:8px;padding:8px 10px}
+.sol-horas{font-size:22px;font-weight:800;color:var(--pri)}
+
+/* EMPTY */
+.empty{text-align:center;padding:36px 20px;color:var(--txt2)}
+.empty-icon{font-size:44px;margin-bottom:10px}
+.empty p{font-size:14px}
+
+/* SECTION */
+.section{padding:14px 16px}
+
+/* TOAST */
+.toast{position:fixed;bottom:82px;left:50%;transform:translateX(-50%) translateY(16px);background:#323232;color:#fff;padding:10px 22px;border-radius:20px;font-size:13px;z-index:300;opacity:0;transition:all .25s;white-space:nowrap;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* LOGIN */
+.login-wrap{min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:28px 28px 48px;background:linear-gradient(165deg,var(--pri3) 0%,var(--pri) 55%,var(--pri-deep) 100%);overflow-y:auto}
+.login-logo{font-size:52px;margin-bottom:14px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.25))}
+.login-title{color:#fff;font-size:22px;font-weight:800;margin-bottom:4px;text-align:center}
+.login-sub{color:rgba(255,255,255,.75);font-size:14px;margin-bottom:28px;text-align:center}
+.login-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;max-width:340px}
+.login-btn{background:linear-gradient(180deg,#fff,#f2f6fa);border:none;border-radius:var(--radius);padding:16px 10px;display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;box-shadow:0 5px 0 #c3d0dc,0 9px 18px rgba(0,0,0,.24);transition:transform .1s ease,box-shadow .1s ease}
+.login-btn:active{transform:translateY(4px);box-shadow:0 1px 0 #c3d0dc,0 3px 8px rgba(0,0,0,.18)}
+.login-av{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px;color:#fff;box-shadow:inset 0 -3px 6px rgba(0,0,0,.22),inset 0 2px 3px rgba(255,255,255,.45),0 2px 5px rgba(0,0,0,.18)}
+.login-btn span{font-size:13px;font-weight:600;color:var(--txt)}
+.login-btn small{font-size:10px;color:var(--txt2);font-weight:400;margin-top:-4px}
+.login-btn.diretor{grid-column:1/-1;flex-direction:row;justify-content:center;background:linear-gradient(180deg,#ffb74d,#f57c00);color:#fff;border:none;gap:10px;box-shadow:0 5px 0 #c25e00,0 9px 20px rgba(0,0,0,.3)}
+.login-btn.diretor:active{box-shadow:0 1px 0 #c25e00,0 3px 10px rgba(0,0,0,.25)}
+.login-btn.diretor span{color:#fff;font-size:14px;font-weight:800}
+.login-btn.posto{grid-column:1/-1;flex-direction:row;justify-content:center;background:linear-gradient(180deg,#4db6ac,#00695c);color:#fff;border:none;gap:10px;box-shadow:0 5px 0 #003d33,0 9px 20px rgba(0,0,0,.3)}
+.login-btn.posto:active{box-shadow:0 1px 0 #003d33,0 3px 10px rgba(0,0,0,.25)}
+.login-btn.posto span{color:#fff;font-size:14px;font-weight:800}
+.login-section-title{width:100%;max-width:340px;color:rgba(255,255,255,.7);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin:16px 0 6px;padding-left:2px}
+
+/* PIN */
+.pin-modal{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:20px}
+.pin-modal-box{position:relative;background:#fff;border-radius:18px;padding:28px 24px 22px;width:100%;max-width:300px;display:flex;flex-direction:column;align-items:center;animation:pinPop .15s ease-out}
+.pin-modal-box.shake{animation:pinShake .4s}
+@keyframes pinPop{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes pinShake{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(4px)}30%,50%,70%{transform:translateX(-8px)}40%,60%{transform:translateX(8px)}}
+.pin-modal-close{position:absolute;top:10px;right:10px;background:none;border:none;font-size:16px;color:var(--txt2);cursor:pointer;padding:6px}
+.pin-modal-av{width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:19px;color:#fff;margin-bottom:10px;box-shadow:inset 0 -3px 6px rgba(0,0,0,.22),inset 0 2px 3px rgba(255,255,255,.45),0 2px 5px rgba(0,0,0,.18)}
+.pin-modal-user{font-weight:800;font-size:15px;color:var(--txt)}
+.pin-modal-title{font-size:12px;color:var(--txt2);margin:2px 0 16px}
+.pin-dots{display:flex;gap:14px;margin-bottom:10px}
+.pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--pri);background:transparent;transition:background .1s}
+.pin-dot.filled{background:var(--pri)}
+.pin-error{font-size:12px;color:#c62828;font-weight:600;margin-bottom:10px;text-align:center}
+.pin-keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%}
+.pin-keypad button{background:linear-gradient(180deg,#fff,var(--pri-light));border:none;border-radius:13px;padding:14px 0;font-size:18px;font-weight:800;color:var(--pri);cursor:pointer;box-shadow:0 3px 0 #bfd9f0,0 4px 8px rgba(0,0,0,.08);transition:transform .08s ease,box-shadow .08s ease}
+.pin-keypad button:active{transform:translateY(3px);background:linear-gradient(180deg,var(--pri3),var(--pri2));color:#fff;box-shadow:0 0 0 #bfd9f0}
+.pin-key-ghost{background:transparent!important;box-shadow:none!important;cursor:default!important;pointer-events:none}
+
+/* POSTO SELECT */
+.posto-select-item{background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px;cursor:pointer;box-shadow:var(--shadow)}
+.posto-select-item:active{transform:scale(.98)}
+.posto-select-fil{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;color:#fff;flex-shrink:0}
+.posto-select-name{font-weight:600;font-size:13px}
+.posto-select-area{font-size:11px;color:var(--txt2)}
+.posto-group-title{font-size:11px;font-weight:800;color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 6px;padding-left:2px}
+
+/* RELATORIO */
+.rel-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:8px}
+.rel-total{background:linear-gradient(135deg,var(--pri3),var(--pri));color:#fff;border-radius:var(--radius);padding:18px;text-align:center;margin-bottom:14px;box-shadow:var(--shadow-lg)}
+.rel-total-num{font-size:34px;font-weight:800}
+.rel-total-label{font-size:12px;opacity:.85;margin-top:2px}
+.rel-row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--cinza2)}
+.rel-row:last-child{border-bottom:none}
+.rel-row-posto{font-weight:600;font-size:13px}
+.rel-row-area{font-size:11px;color:var(--txt2)}
+.rel-row-horas{font-weight:800;font-size:15px;color:var(--pri)}
+
+/* OFFLINE / SYNC */
+.offline-bar{position:fixed;top:0;left:0;right:0;z-index:400;background:#b71c1c;color:#fff;text-align:center;font-size:12px;font-weight:600;padding:5px 12px;display:none}
+.offline-bar.show{display:block}
+.sync-pending-bar{background:#e65100;color:#fff;border-radius:10px;padding:9px 14px;margin-bottom:10px;font-size:12px;display:none;align-items:center;gap:8px}
+.sync-pending-bar.show{display:flex}
+
+@media print{
+  .bottom-nav,.header,.btn,.toast,.offline-bar,.sync-pending-bar{display:none!important}
+  body{background:#fff;padding:0}
+  .card,.sol-card{box-shadow:none;border:1px solid #ddd}
+}
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+<div class="offline-bar" id="offline-bar">📵 Sem conexão — dados serão sincronizados quando voltar online</div>
+
+<!-- ==================== LOGIN ==================== -->
+<div id="screen-login" class="login-wrap">
+  <div class="login-logo">⏱️</div>
+  <div class="login-title">Horas Extras</div>
+  <div class="login-sub">Rede Sander · Selecione seu perfil</div>
+
+  <div style="width:100%;max-width:340px">
+    <button class="login-btn diretor" onclick="iniciarLoginGerente('Diretor')">
+      <span>👁️ Visão Diretor</span>
+    </button>
+  </div>
+
+  <div class="login-section-title">Gerência</div>
+  <div class="login-grid">
+    <button class="login-btn" data-user="Luiz" onclick="iniciarLoginGerente('Luiz')" style="grid-column:1/-1">
+      <div class="login-av" style="background:#0d47a1">L</div>
+      <span>Luiz Lira</span><small>Gerente de Operações</small>
+    </button>
+  </div>
+
+  <div class="login-section-title">Gerentes de Área</div>
+  <div class="login-grid">
+    <button class="login-btn" data-user="Fabricio" onclick="iniciarLoginGerente('Fabricio')">
+      <div class="login-av" style="background:#2e7d32">F</div>
+      <span>Fabricio</span>
+    </button>
+    <button class="login-btn" data-user="Adelcio" onclick="iniciarLoginGerente('Adelcio')">
+      <div class="login-av" style="background:#00838f">A</div>
+      <span>Adelcio</span>
+    </button>
+    <button class="login-btn" data-user="Joao" onclick="iniciarLoginGerente('Joao')">
+      <div class="login-av" style="background:#1565c0">J</div>
+      <span>João</span>
+    </button>
+    <button class="login-btn" data-user="Edinei" onclick="iniciarLoginGerente('Edinei')">
+      <div class="login-av" style="background:#bf360c">E</div>
+      <span>Edinei</span>
+    </button>
+    <button class="login-btn" data-user="Giovani" onclick="iniciarLoginGerente('Giovani')" style="grid-column:1/-1">
+      <div class="login-av" style="background:#4e342e">G</div>
+      <span>Giovani</span>
+    </button>
+  </div>
+
+  <div class="login-section-title">Posto</div>
+  <div style="width:100%;max-width:340px">
+    <button class="login-btn posto" onclick="abrirPostoSelect()">
+      <span>🏪 Acesso do Posto</span>
+    </button>
+  </div>
+</div><!-- /screen-login -->
+
+<!-- ==================== SELEÇÃO DE POSTO ==================== -->
+<div id="screen-posto-select" class="login-wrap hidden">
+  <button class="btn btn-secondary btn-sm" style="align-self:flex-start;margin-bottom:14px" onclick="fecharPostoSelect()">← Voltar</button>
+  <div class="login-title" style="margin-bottom:14px">Selecione seu posto</div>
+  <div style="width:100%;max-width:420px">
+    <div class="search-bar">
+      <span>🔍</span>
+      <input type="text" id="posto-select-search" placeholder="Buscar por número da filial ou nome..." oninput="renderPostoSelectList(this.value)">
+    </div>
+    <div id="posto-select-list"></div>
+  </div>
+</div>
+
+<!-- ==================== MODAL DE PIN ==================== -->
+<div id="pin-modal" class="pin-modal hidden">
+  <div class="pin-modal-box">
+    <button class="pin-modal-close" onclick="fecharPinModal()">✕</button>
+    <div class="pin-modal-av" id="pin-modal-av"></div>
+    <div class="pin-modal-user" id="pin-modal-user"></div>
+    <div class="pin-modal-title">Digite seu PIN</div>
+    <div class="pin-dots" id="pin-dots">
+      <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
+    </div>
+    <div class="pin-error hidden" id="pin-error">PIN incorreto, tente novamente</div>
+    <div class="pin-keypad">
+      <button onclick="pinDigit('1')">1</button><button onclick="pinDigit('2')">2</button><button onclick="pinDigit('3')">3</button>
+      <button onclick="pinDigit('4')">4</button><button onclick="pinDigit('5')">5</button><button onclick="pinDigit('6')">6</button>
+      <button onclick="pinDigit('7')">7</button><button onclick="pinDigit('8')">8</button><button onclick="pinDigit('9')">9</button>
+      <button class="pin-key-ghost"></button><button onclick="pinDigit('0')">0</button><button onclick="pinBackspace()">⌫</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== APP SHELL ==================== -->
+<div id="app-shell" class="hidden">
+  <div class="header">
+    <h1 id="app-title">Horas Extras</h1>
+    <span class="user-badge" onclick="logout()" id="user-badge">Sair</span>
+  </div>
+
+  <div class="section">
+    <div class="sync-pending-bar" id="sync-pending-bar">⏳ Dados aguardando sincronização</div>
+
+    <!-- ===== POSTO: Nova Solicitação ===== -->
+    <div id="screen-nova-solicitacao" class="screen hidden">
+      <div class="card">
+        <div class="card-title">Nova Solicitação de Hora Extra</div>
+        <div class="form-group">
+          <label>Funcionário</label>
+          <input type="text" id="sol-funcionario" placeholder="Nome do funcionário">
+        </div>
+        <div class="form-group">
+          <label>Quantidade de Horas</label>
+          <input type="number" id="sol-quantidade" step="0.5" min="0.5" placeholder="Ex: 2">
+        </div>
+        <div class="form-group">
+          <label>Data da Hora Extra</label>
+          <input type="date" id="sol-data">
+        </div>
+        <div class="form-group">
+          <label>Motivo</label>
+          <textarea id="sol-motivo" placeholder="Explique o motivo da hora extra..."></textarea>
+        </div>
+        <button class="btn btn-primary btn-full" onclick="salvarNovaSolicitacao()">📤 Enviar para Aprovação</button>
+      </div>
+    </div>
+
+    <!-- ===== POSTO: Minhas Solicitações ===== -->
+    <div id="screen-minhas-solicitacoes" class="screen hidden">
+      <div id="minhas-solicitacoes-list"></div>
+    </div>
+
+    <!-- ===== ÁREA/OPERAÇÕES: Pendentes ===== -->
+    <div id="screen-pendentes" class="screen hidden">
+      <div id="pendentes-list"></div>
+    </div>
+
+    <!-- ===== ÁREA/OPERAÇÕES: Histórico ===== -->
+    <div id="screen-historico" class="screen hidden">
+      <div id="historico-list"></div>
+    </div>
+
+    <!-- ===== DIRETOR: Relatório Diário ===== -->
+    <div id="screen-relatorio-diario" class="screen hidden">
+      <div class="rel-nav">
+        <button class="btn btn-secondary btn-sm" onclick="mudarDiaRelatorio(-1)">← Anterior</button>
+        <input type="date" id="rel-dia-input" onchange="STATE.relDia=this.value; renderRelatorioDiario()" style="border:none;font-weight:700;font-size:14px;background:transparent">
+        <button class="btn btn-secondary btn-sm" onclick="mudarDiaRelatorio(1)">Próximo →</button>
+      </div>
+      <div id="relatorio-diario-content"></div>
+    </div>
+
+    <!-- ===== DIRETOR: Relatório Mensal ===== -->
+    <div id="screen-relatorio-mensal" class="screen hidden">
+      <div class="rel-nav">
+        <div class="card-title" style="margin:0">Totalizador do mês</div>
+        <input type="month" id="rel-mes-input" onchange="STATE.relMes=this.value; renderRelatorioMensal()" style="border:1.5px solid #ddd;border-radius:8px;padding:7px 10px;font-size:13px;font-weight:600">
+      </div>
+      <div id="relatorio-mensal-content"></div>
+    </div>
+
+    <!-- ===== CONFIG ===== -->
+    <div id="screen-config" class="screen hidden">
+      <div class="card">
+        <div class="card-title">📶 Sincronização</div>
+        <div id="config-sync-info" style="font-size:12px;color:var(--txt2);margin-bottom:10px">—</div>
+        <button class="btn btn-secondary btn-full" onclick="sincronizarManual()">🔄 Sincronizar agora</button>
+      </div>
+      <div class="card">
+        <div class="card-title">ℹ️ Sobre</div>
+        <div style="font-size:13px;color:var(--txt2);line-height:1.6">
+          Sistema de aprovação de horas extras — Rede Sander.<br>
+          Fluxo: Posto → Gerente de Área → Gerente de Operações.<br>
+          Diretor recebe relatório diário e mensal para ciência.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<nav class="bottom-nav hidden" id="bottom-nav"></nav>
+
+<script>
+// ==================== DADOS DA REDE ====================
+// Mesmos 74 postos/filiais e áreas já cadastrados no CRM de Visitas — mantido idêntico
+// pra não haver divergência entre os dois sistemas (mesma pessoa = mesma área/território).
+var POSTOS = {
+  Fabricio:[
+    {nome:'XANGRILA',fil:41},{nome:'TORRES SHELL',fil:55},{nome:'CANELA SHELL',fil:60},
+    {nome:'TORRES BOLAO',fil:69},{nome:'CAPAO DA CANOA',fil:67},{nome:'CANELA IPIRANGA',fil:66},
+    {nome:'OSORIO',fil:71},{nome:'NOVA PETROPOLIS',fil:72},{nome:'GRAMADO',fil:75},
+    {nome:'SAO CHICO',fil:76},{nome:'OSORIO 38',fil:38},{nome:'SS CAI',fil:57},
+    {nome:'GRAMADO PEDROTTI',fil:35},{nome:'MONTENEGRO',fil:34}
+  ],
+  Adelcio:[
+    {nome:'MARAU IPIRANGA',fil:3},{nome:'MARAU SHELL ROD',fil:5},{nome:'MARAU SHELL',fil:9},
+    {nome:'PF IGAI',fil:16},{nome:'PF VERMELHAO',fil:18},{nome:'PF IPIRANGA',fil:29},
+    {nome:'ERECHIM',fil:43},{nome:'MARAU CENTRO',fil:45},{nome:'PF SHELL',fil:49},
+    {nome:'PF BR',fil:59},{nome:'VILA MARIA',fil:61},{nome:'VILA MARIA 2',fil:62},
+    {nome:'MATO CASTELHANO',fil:70},{nome:'PASSO FUNDO',fil:78},{nome:'FILIAL 82',fil:82}
+  ],
+  Joao:[
+    {nome:'GARIBALDI',fil:8},{nome:'FARROUPILHA',fil:12},{nome:'BENTO STA RITA',fil:15},
+    {nome:'BENTO MODELO',fil:20},{nome:'CAXIAS PETROTECH',fil:33},{nome:'CAXIAS DELTA',fil:36},
+    {nome:'VERANOPOLIS',fil:40},{nome:'BENTO STO ANTAO',fil:46},{nome:'BENTO SAO PEDRO',fil:47},
+    {nome:'VERANOPOLIS 2',fil:48},{nome:'NOVA PRATA',fil:50},{nome:'BARAO',fil:53},
+    {nome:'CARLOS BARBOSA',fil:54},{nome:'CAXIAS',fil:56},{nome:'FARROUPILHA 2',fil:77},
+    {nome:'SHOPPING CAXIAS',fil:84}
+  ],
+  Edinei:[
+    {nome:'MUCUM',fil:2},{nome:'CASCA',fil:7},{nome:'PARAI',fil:10},
+    {nome:'NOVA ARACA',fil:11},{nome:'CASCA 2',fil:25},{nome:'SERAFINA',fil:27},
+    {nome:'PARAI 2',fil:28},{nome:'VENANCIO',fil:37},{nome:'GUAPORE',fil:42},
+    {nome:'BASSANO',fil:64},{nome:'IBIRAIARAS',fil:65},{nome:'ENCANTADO',fil:68},
+    {nome:'SERAFINA 2',fil:73},{nome:'SERAFINA 3',fil:74}
+  ],
+  Giovani:[
+    {nome:'BOM JESUS',fil:6},{nome:'LAGOA VERMELHA',fil:13},{nome:'SJ DOS AUSENTES',fil:14},
+    {nome:'LAGOA VERMELHA 2',fil:24},{nome:'TAPEJARA',fil:26},{nome:'VACARIA',fil:30},
+    {nome:'TAPEJARA 2',fil:31},{nome:'SANANDUVA',fil:32},{nome:'ANTONIO PRADO',fil:39},
+    {nome:'LAGOA VERMELHA 3',fil:44},{nome:'VACARIA 2',fil:51},{nome:'LAGOA VERMELHA 4',fil:52},
+    {nome:'LAGOA VERMELHA 5',fil:58},{nome:'BOM JESUS 2',fil:63},{nome:'VACARIA 3',fil:79}
+  ]
+};
+
+// Gerentes com acesso ao app (mesmos PINs já usados no CRM de Visitas, pra não obrigar o
+// time a decorar PIN diferente por sistema). papel: 'diretor' | 'operacoes' | 'area'
+var GERENTES = {
+  Diretor:  { label:'Diretor',    role:'Direção',              cor:'#37474f', inicial:'D', papel:'diretor',   pin:'0001' },
+  Luiz:     { label:'Luiz Lira',  role:'Gerente de Operações', cor:'#0d47a1', inicial:'L', papel:'operacoes', pin:'1001' },
+  Fabricio: { label:'Fabricio',   role:'Gerente de Área',      cor:'#2e7d32', inicial:'F', papel:'area',      pin:'4004' },
+  Adelcio:  { label:'Adelcio',    role:'Gerente de Área',      cor:'#00838f', inicial:'A', papel:'area',      pin:'5005' },
+  Joao:     { label:'João',       role:'Gerente de Área',      cor:'#1565c0', inicial:'J', papel:'area',      pin:'6006' },
+  Edinei:   { label:'Edinei',     role:'Gerente de Área',      cor:'#bf360c', inicial:'E', papel:'area',      pin:'7007' },
+  Giovani:  { label:'Giovani',    role:'Gerente de Área',      cor:'#4e342e', inicial:'G', papel:'area',      pin:'8008' }
+};
+
+var STATUS_INFO = {
+  pendente_area:       { label:'Aguardando Área',       cor:'#e65100', bg:'#fff3e0' },
+  pendente_operacoes:  { label:'Aguardando Operações',  cor:'#1565c0', bg:'#e3f2fd' },
+  aprovado:            { label:'Aprovado',              cor:'#2e7d32', bg:'#e8f5e9' },
+  reprovado_area:      { label:'Reprovado (Área)',      cor:'#b71c1c', bg:'#ffebee' },
+  reprovado_operacoes: { label:'Reprovado (Operações)', cor:'#b71c1c', bg:'#ffebee' }
+};
+
+// PREENCHER APÓS CRIAR O GOOGLE APPS SCRIPT (ver apps_script.gs neste mesmo projeto) —
+// sem isso o app funciona só localmente neste aparelho, sem sincronizar com a equipe.
+var SCRIPT_URL = '';
+
+// ==================== HELPERS ====================
+function areaDaFilial(fil){
+  for(var area in POSTOS){ if(POSTOS[area].some(function(p){ return p.fil===fil; })) return area; }
+  return null;
+}
+function postoNome(fil){
+  for(var area in POSTOS){
+    var p = POSTOS[area].find(function(p){ return p.fil===fil; });
+    if(p) return p.nome;
+  }
+  return 'Filial '+fil;
+}
+function corDaArea(area){ return (GERENTES[area]&&GERENTES[area].cor)||'#607d8b'; }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+function localDateStr(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function today(){ return localDateStr(new Date()); }
+function mesAtual(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+function fmtDate(d){ if(!d) return '—'; var p=d.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
+function fmtHoras(n){ n=parseFloat(n)||0; return (n%1===0?n.toFixed(0):n.toFixed(1))+'h'; }
+var MESES_EXT=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+function fmtMes(m){ if(!m) return '—'; var p=m.split('-'); return MESES_EXT[parseInt(p[1])-1]+'/'+p[0]; }
+
+function toast(msg){ var t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(function(){ t.classList.remove('show'); },2500); }
+
+// ==================== ESTADO ====================
+var STATE = {
+  usuario:null, tipoUsuario:null, papel:null, postoFil:null, postoArea:null,
+  screen:null, relDia: today(), relMes: mesAtual()
+};
+
+// ==================== DADOS (local + nuvem) ====================
+function loadLocal(){ try{ return JSON.parse(localStorage.getItem('he_local')||'[]'); }catch(e){ return []; } }
+function saveLocal(arr){ localStorage.setItem('he_local', JSON.stringify(arr)); }
+function loadCache(){ try{ return JSON.parse(localStorage.getItem('he_cache')||'[]'); }catch(e){ return []; } }
+function loadAll(){
+  var local = loadLocal(), cache = loadCache();
+  var merged = {};
+  cache.forEach(function(x){ if(x.id) merged[x.id]=x; });
+  local.forEach(function(x){ if(x.id) merged[x.id]=x; }); // local sempre vence (edição ainda não sincronizada)
+  var out = []; Object.keys(merged).forEach(function(k){ out.push(merged[k]); });
+  return out;
+}
+function getSolicitacao(id){ return loadAll().find(function(s){ return s.id===id; }); }
+
+function salvar(s){
+  var arr = loadLocal();
+  var idx = arr.findIndex(function(x){ return x.id===s.id; });
+  if(idx>=0) arr[idx]=s; else arr.push(s);
+  saveLocal(arr);
+  sincronizar();
+}
+
+function sincronizar(){
+  var data = loadLocal();
+  if(!data.length || !SCRIPT_URL) return;
+  if(!navigator.onLine){ localStorage.setItem('he_sync_pending','1'); updateSyncBar(); return; }
+  fetch(SCRIPT_URL, { method:'POST', mode:'no-cors', body: JSON.stringify({solicitacoes:data}), headers:{'Content-Type':'application/json'} })
+    .then(function(){ localStorage.removeItem('he_sync_pending'); updateSyncBar(); })
+    .catch(function(){ localStorage.setItem('he_sync_pending','1'); updateSyncBar(); });
+}
+
+function sincronizarManual(){
+  if(!SCRIPT_URL){ toast('⚠️ SCRIPT_URL ainda não configurado'); return; }
+  toast('🔄 Sincronizando...');
+  sincronizar();
+  buscarNuvem(function(){ toast('✅ Sincronizado com sucesso'); refreshVisibleScreen(); renderConfig(); });
+}
+
+// Busca a nuvem em segundo plano; onDone (ou refreshVisibleScreen por padrão) roda depois —
+// mesmo padrão usado no CRM de Visitas pra telas atualizarem sozinhas sem esperar timer.
+function buscarNuvem(onDone){
+  if(!SCRIPT_URL) return;
+  fetch(SCRIPT_URL+'?t='+Date.now())
+    .then(function(r){ return r.json(); })
+    .then(function(json){
+      if(json.ok && json.solicitacoes){
+        localStorage.setItem('he_cache', JSON.stringify(json.solicitacoes));
+        if(onDone) onDone(); else refreshVisibleScreen();
+      }
+    })
+    .catch(function(){});
+}
+
+function refreshVisibleScreen(){
+  switch(STATE.screen){
+    case 'minhas-solicitacoes': renderMinhasSolicitacoes(); break;
+    case 'pendentes': renderPendentes(); break;
+    case 'historico': renderHistorico(); break;
+    case 'relatorio-diario': renderRelatorioDiario(); break;
+    case 'relatorio-mensal': renderRelatorioMensal(); break;
+  }
+}
+
+function updateSyncBar(){
+  var bar = document.getElementById('sync-pending-bar');
+  if(!bar) return;
+  bar.classList.toggle('show', !!localStorage.getItem('he_sync_pending'));
+}
+
+function addHistorico(s, status, obs){
+  s.historico = s.historico||[];
+  s.historico.push({ status:status, usuario: STATE.usuario, em: Date.now(), obs: obs||'' });
+}
+
+// ==================== PIN ====================
+var PIN_BUFFER = '', PIN_ESPERADO = '', PIN_TARGET = null;
+
+function abrirPin(nome, cor, inicial, pinEsperado, target){
+  PIN_BUFFER = ''; PIN_ESPERADO = pinEsperado; PIN_TARGET = target;
+  document.getElementById('pin-modal-user').textContent = nome;
+  var av = document.getElementById('pin-modal-av');
+  av.textContent = inicial; av.style.background = cor;
+  document.getElementById('pin-error').classList.add('hidden');
+  atualizarPinDots();
+  document.getElementById('pin-modal').classList.remove('hidden');
+}
+function fecharPinModal(){
+  document.getElementById('pin-modal').classList.add('hidden');
+  PIN_BUFFER=''; PIN_TARGET=null;
+}
+function atualizarPinDots(){
+  document.querySelectorAll('#pin-dots .pin-dot').forEach(function(d,i){ d.classList.toggle('filled', i<PIN_BUFFER.length); });
+}
+function pinDigit(d){
+  if(PIN_BUFFER.length>=4) return;
+  PIN_BUFFER += d;
+  atualizarPinDots();
+  if(PIN_BUFFER.length===4) setTimeout(verificarPin, 150);
+}
+function pinBackspace(){ PIN_BUFFER = PIN_BUFFER.slice(0,-1); atualizarPinDots(); }
+function verificarPin(){
+  if(PIN_BUFFER===PIN_ESPERADO){
+    var target = PIN_TARGET;
+    fecharPinModal();
+    if(target.tipo==='gerente') doLoginGerente(target.id);
+    else doLoginPosto(target.fil);
+  } else {
+    document.getElementById('pin-error').classList.remove('hidden');
+    var box = document.querySelector('.pin-modal-box');
+    box.classList.add('shake');
+    setTimeout(function(){ box.classList.remove('shake'); }, 400);
+    PIN_BUFFER=''; atualizarPinDots();
+  }
+}
+
+// ==================== LOGIN ====================
+function iniciarLoginGerente(user){
+  var g = GERENTES[user];
+  abrirPin(g.label, g.cor, g.inicial, g.pin, {tipo:'gerente', id:user});
+}
+
+function abrirPostoSelect(){
+  document.getElementById('screen-login').classList.add('hidden');
+  document.getElementById('screen-posto-select').classList.remove('hidden');
+  document.getElementById('posto-select-search').value='';
+  renderPostoSelectList('');
+}
+function fecharPostoSelect(){
+  document.getElementById('screen-posto-select').classList.add('hidden');
+  document.getElementById('screen-login').classList.remove('hidden');
+}
+function renderPostoSelectList(filtro){
+  filtro = (filtro||'').trim().toLowerCase();
+  var wrap = document.getElementById('posto-select-list');
+  var html = '';
+  Object.keys(POSTOS).forEach(function(area){
+    var itens = POSTOS[area].filter(function(p){
+      return !filtro || String(p.fil).indexOf(filtro)>=0 || p.nome.toLowerCase().indexOf(filtro)>=0;
+    });
+    if(!itens.length) return;
+    html += '<div class="posto-group-title">'+area+'</div>';
+    itens.sort(function(a,b){ return a.fil-b.fil; }).forEach(function(p){
+      html += '<div class="posto-select-item" onclick="selecionarPosto('+p.fil+')">'+
+        '<div class="posto-select-fil" style="background:'+corDaArea(area)+'">'+p.fil+'</div>'+
+        '<div><div class="posto-select-name">'+p.nome+'</div><div class="posto-select-area">Fil. '+p.fil+' · '+area+'</div></div>'+
+        '</div>';
+    });
+  });
+  wrap.innerHTML = html || '<div class="empty" style="color:rgba(255,255,255,.8)"><p>Nenhum posto encontrado</p></div>';
+}
+function selecionarPosto(fil){
+  var pinEsperado = String(fil).padStart(4,'0');
+  abrirPin('Filial '+fil+' — '+postoNome(fil), corDaArea(areaDaFilial(fil)), 'F', pinEsperado, {tipo:'posto', fil:fil});
+}
+
+function doLoginGerente(user){
+  var g = GERENTES[user];
+  STATE.usuario = user; STATE.tipoUsuario = 'gerente'; STATE.papel = g.papel;
+  STATE.postoFil = null; STATE.postoArea = null;
+  abrirAppShell(g.label);
+  buscarNuvem();
+}
+function doLoginPosto(fil){
+  STATE.usuario = 'Filial '+fil; STATE.tipoUsuario = 'posto'; STATE.papel = 'posto';
+  STATE.postoFil = fil; STATE.postoArea = areaDaFilial(fil);
+  abrirAppShell('Filial '+fil);
+  buscarNuvem();
+}
+
+function abrirAppShell(nomeExibido){
+  document.getElementById('screen-login').classList.add('hidden');
+  document.getElementById('screen-posto-select').classList.add('hidden');
+  document.getElementById('app-shell').classList.remove('hidden');
+  document.getElementById('bottom-nav').classList.remove('hidden');
+  document.getElementById('user-badge').textContent = nomeExibido+' · Sair';
+  montarBottomNav();
+  var primeiraTela = STATE.papel==='posto' ? 'minhas-solicitacoes'
+    : (STATE.papel==='diretor' ? 'relatorio-diario' : 'pendentes');
+  var btn = document.querySelector('.nav-btn[data-screen="'+primeiraTela+'"]');
+  navTo(primeiraTela, btn);
+}
+
+function logout(){
+  STATE.usuario=null; STATE.tipoUsuario=null; STATE.papel=null; STATE.postoFil=null; STATE.postoArea=null;
+  document.getElementById('app-shell').classList.add('hidden');
+  document.getElementById('bottom-nav').classList.add('hidden');
+  document.getElementById('screen-posto-select').classList.add('hidden');
+  document.getElementById('screen-login').classList.remove('hidden');
+}
+
+function montarBottomNav(){
+  var nav = document.getElementById('bottom-nav');
+  var itens = [];
+  if(STATE.papel==='posto'){
+    itens = [
+      {screen:'nova-solicitacao', ico:'➕', label:'Solicitar'},
+      {screen:'minhas-solicitacoes', ico:'📋', label:'Minhas'},
+      {screen:'config', ico:'⚙️', label:'Config'}
+    ];
+  } else if(STATE.papel==='area' || STATE.papel==='operacoes'){
+    itens = [
+      {screen:'pendentes', ico:'⏳', label:'Pendentes', badge:true},
+      {screen:'historico', ico:'📖', label:'Histórico'},
+      {screen:'config', ico:'⚙️', label:'Config'}
+    ];
+  } else if(STATE.papel==='diretor'){
+    itens = [
+      {screen:'relatorio-diario', ico:'📅', label:'Diário'},
+      {screen:'relatorio-mensal', ico:'📊', label:'Mensal'},
+      {screen:'config', ico:'⚙️', label:'Config'}
+    ];
+  }
+  nav.innerHTML = itens.map(function(it){
+    return '<button class="nav-btn" data-screen="'+it.screen+'" onclick="navTo(\''+it.screen+'\',this)">'+
+      '<span class="nav-ico">'+it.ico+'</span><span>'+it.label+'</span>'+
+      (it.badge?'<span class="notif-badge hidden" id="badge-'+it.screen+'"></span>':'')+
+      '</button>';
+  }).join('');
+}
+
+// ==================== NAVEGAÇÃO ====================
+function showScreen(name){
+  document.querySelectorAll('.screen').forEach(function(el){ el.classList.add('hidden'); });
+  var el = document.getElementById('screen-'+name);
+  if(el) el.classList.remove('hidden');
+}
+function navTo(name, btn){
+  STATE.screen = name;
+  showScreen(name);
+  if(btn){
+    document.querySelectorAll('.nav-btn').forEach(function(b){ b.classList.remove('active'); });
+    btn.classList.add('active');
+  }
+  if(name==='nova-solicitacao') setupNovaSolicitacao();
+  if(name==='minhas-solicitacoes') renderMinhasSolicitacoes();
+  if(name==='pendentes'){ renderPendentes(); buscarNuvem(function(){ if(STATE.screen==='pendentes') renderPendentes(); }); }
+  if(name==='historico') renderHistorico();
+  if(name==='relatorio-diario'){
+    document.getElementById('rel-dia-input').value = STATE.relDia;
+    renderRelatorioDiario();
+    buscarNuvem(function(){ if(STATE.screen==='relatorio-diario') renderRelatorioDiario(); });
+  }
+  if(name==='relatorio-mensal'){
+    document.getElementById('rel-mes-input').value = STATE.relMes;
+    renderRelatorioMensal();
+    buscarNuvem(function(){ if(STATE.screen==='relatorio-mensal') renderRelatorioMensal(); });
+  }
+  if(name==='config') renderConfig();
+  atualizarBadgePendentes();
+}
+
+function atualizarBadgePendentes(){
+  var el = document.getElementById('badge-pendentes');
+  if(!el) return;
+  var n = pendentesParaMim().length;
+  el.textContent = n;
+  el.classList.toggle('hidden', n===0);
+}
+function pendentesParaMim(){
+  if(STATE.papel==='area') return loadAll().filter(function(s){ return s.status==='pendente_area' && s.area===STATE.usuario; });
+  if(STATE.papel==='operacoes') return loadAll().filter(function(s){ return s.status==='pendente_operacoes'; });
+  return [];
+}
+
+// ==================== POSTO: Nova Solicitação ====================
+function setupNovaSolicitacao(){
+  document.getElementById('sol-funcionario').value='';
+  document.getElementById('sol-quantidade').value='';
+  document.getElementById('sol-data').value = today();
+  document.getElementById('sol-motivo').value='';
+}
+function salvarNovaSolicitacao(){
+  var funcionario = document.getElementById('sol-funcionario').value.trim();
+  var quantidade = parseFloat(document.getElementById('sol-quantidade').value);
+  var data = document.getElementById('sol-data').value;
+  var motivo = document.getElementById('sol-motivo').value.trim();
+  if(!funcionario){ toast('Informe o nome do funcionário'); return; }
+  if(!quantidade || quantidade<=0){ toast('Informe a quantidade de horas'); return; }
+  if(!data){ toast('Informe a data'); return; }
+  if(!motivo){ toast('Informe o motivo'); return; }
+  var s = {
+    id: uid(), fil: STATE.postoFil, area: STATE.postoArea,
+    funcionario: funcionario, quantidade: quantidade, motivo: motivo, data: data,
+    status: 'pendente_area', historico: [], criadoEm: Date.now()
+  };
+  addHistorico(s, 'pendente_area', '');
+  salvar(s);
+  toast('📤 Solicitação enviada para aprovação');
+  var btn = document.querySelector('.nav-btn[data-screen="minhas-solicitacoes"]');
+  navTo('minhas-solicitacoes', btn);
+}
+
+// ==================== CARD DE SOLICITAÇÃO ====================
+function solicitacaoCardHTML(s, contexto){
+  var st = STATUS_INFO[s.status]||{label:s.status,cor:'#607d8b',bg:'#eceff1'};
+  var rejeicao = '';
+  if(s.status==='reprovado_area' || s.status==='reprovado_operacoes'){
+    var ultimo = (s.historico||[]).slice().reverse().find(function(h){ return h.status===s.status; });
+    if(ultimo && ultimo.obs) rejeicao = '<div class="sol-obs-rejeicao">❌ '+ultimo.obs+'</div>';
+  }
+  var botoes = '';
+  if(contexto==='pendente-area'){
+    botoes = '<div class="btn-row">'+
+      '<button class="btn btn-sm btn-ok" onclick="aprovarArea(\''+s.id+'\')">✅ Aprovar</button>'+
+      '<button class="btn btn-sm btn-danger" onclick="reprovarArea(\''+s.id+'\')">❌ Reprovar</button>'+
+      '</div>';
+  } else if(contexto==='pendente-operacoes'){
+    botoes = '<div class="btn-row">'+
+      '<button class="btn btn-sm btn-ok" onclick="aprovarOperacoes(\''+s.id+'\')">✅ Aprovar</button>'+
+      '<button class="btn btn-sm btn-danger" onclick="reprovarOperacoes(\''+s.id+'\')">❌ Reprovar</button>'+
+      '</div>';
+  }
+  return '<div class="sol-card" style="border-left-color:'+st.cor+'">'+
+    '<div class="sol-top">'+
+      '<div><div class="sol-posto">Fil. '+s.fil+' · '+postoNome(s.fil)+'</div>'+
+      '<div class="sol-func">👤 '+s.funcionario+'</div></div>'+
+      '<div class="sol-horas">'+fmtHoras(s.quantidade)+'</div>'+
+    '</div>'+
+    '<div class="sol-meta">📅 '+fmtDate(s.data)+' &nbsp;·&nbsp; 🗺️ '+s.area+'</div>'+
+    '<div class="sol-motivo">💬 '+s.motivo+'</div>'+
+    rejeicao+
+    '<div style="margin-top:8px"><span class="badge" style="background:'+st.bg+';color:'+st.cor+'">'+st.label+'</span></div>'+
+    botoes+
+    '</div>';
+}
+
+// ==================== POSTO: Minhas Solicitações ====================
+function renderMinhasSolicitacoes(){
+  var lista = loadAll().filter(function(s){ return s.fil===STATE.postoFil; })
+    .sort(function(a,b){ return b.criadoEm-a.criadoEm; });
+  var wrap = document.getElementById('minhas-solicitacoes-list');
+  if(!lista.length){ wrap.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><p>Nenhuma solicitação ainda</p></div>'; return; }
+  wrap.innerHTML = lista.map(function(s){ return solicitacaoCardHTML(s,'leitura'); }).join('');
+}
+
+// ==================== ÁREA/OPERAÇÕES: Pendentes ====================
+function renderPendentes(){
+  var lista = pendentesParaMim().sort(function(a,b){ return a.criadoEm-b.criadoEm; });
+  var contexto = STATE.papel==='area' ? 'pendente-area' : 'pendente-operacoes';
+  var wrap = document.getElementById('pendentes-list');
+  if(!lista.length){ wrap.innerHTML = '<div class="empty"><div class="empty-icon">✅</div><p>Nenhuma solicitação pendente</p></div>'; }
+  else wrap.innerHTML = lista.map(function(s){ return solicitacaoCardHTML(s,contexto); }).join('');
+  atualizarBadgePendentes();
+}
+function aprovarArea(id){
+  var s = getSolicitacao(id); if(!s) return;
+  if(!confirm('Aprovar esta solicitação e encaminhar para o Gerente de Operações?')) return;
+  s.status='pendente_operacoes'; addHistorico(s,'pendente_operacoes','');
+  salvar(s); toast('✅ Aprovado, encaminhado para Operações'); renderPendentes();
+}
+function reprovarArea(id){
+  var s = getSolicitacao(id); if(!s) return;
+  var motivo = prompt('Motivo da reprovação:'); if(motivo===null) return;
+  s.status='reprovado_area'; addHistorico(s,'reprovado_area',motivo);
+  salvar(s); toast('❌ Solicitação reprovada'); renderPendentes();
+}
+function aprovarOperacoes(id){
+  var s = getSolicitacao(id); if(!s) return;
+  if(!confirm('Aprovar esta solicitação de hora extra?')) return;
+  s.status='aprovado'; addHistorico(s,'aprovado','');
+  salvar(s); toast('✅ Hora extra aprovada'); renderPendentes();
+}
+function reprovarOperacoes(id){
+  var s = getSolicitacao(id); if(!s) return;
+  var motivo = prompt('Motivo da reprovação:'); if(motivo===null) return;
+  s.status='reprovado_operacoes'; addHistorico(s,'reprovado_operacoes',motivo);
+  salvar(s); toast('❌ Solicitação reprovada'); renderPendentes();
+}
+
+// ==================== ÁREA/OPERAÇÕES: Histórico ====================
+function renderHistorico(){
+  var lista;
+  if(STATE.papel==='area'){
+    lista = loadAll().filter(function(s){ return s.area===STATE.usuario && s.status!=='pendente_area'; });
+  } else {
+    lista = loadAll().filter(function(s){ return s.status==='aprovado' || s.status==='reprovado_operacoes'; });
+  }
+  lista.sort(function(a,b){ return b.criadoEm-a.criadoEm; });
+  var wrap = document.getElementById('historico-list');
+  if(!lista.length){ wrap.innerHTML = '<div class="empty"><div class="empty-icon">📖</div><p>Nenhum histórico ainda</p></div>'; return; }
+  wrap.innerHTML = lista.map(function(s){ return solicitacaoCardHTML(s,'leitura'); }).join('');
+}
+
+// ==================== DIRETOR: Relatório Diário ====================
+function mudarDiaRelatorio(delta){
+  var d = new Date(STATE.relDia+'T00:00:00');
+  d.setDate(d.getDate()+delta);
+  STATE.relDia = localDateStr(d);
+  document.getElementById('rel-dia-input').value = STATE.relDia;
+  renderRelatorioDiario();
+}
+function renderRelatorioDiario(){
+  var lista = loadAll().filter(function(s){ return s.data===STATE.relDia; });
+  var totalGeral = lista.reduce(function(acc,s){ return acc+parseFloat(s.quantidade||0); },0);
+  var porPosto = {};
+  lista.forEach(function(s){
+    if(!porPosto[s.fil]) porPosto[s.fil] = {total:0, itens:[]};
+    porPosto[s.fil].total += parseFloat(s.quantidade||0);
+    porPosto[s.fil].itens.push(s);
+  });
+  var html = '<div class="rel-total"><div class="rel-total-num">'+fmtHoras(totalGeral)+'</div>'+
+    '<div class="rel-total-label">Total de horas extras solicitadas em '+fmtDate(STATE.relDia)+'</div></div>';
+  var fils = Object.keys(porPosto).sort(function(a,b){ return a-b; });
+  if(!fils.length){
+    html += '<div class="empty"><div class="empty-icon">📅</div><p>Nenhuma solicitação nesta data</p></div>';
+  } else {
+    html += '<div class="card"><div class="card-title">Por posto</div>';
+    fils.forEach(function(fil){
+      html += '<div class="rel-row"><div><div class="rel-row-posto">Fil. '+fil+' · '+postoNome(parseInt(fil))+'</div>'+
+        '<div class="rel-row-area">'+areaDaFilial(parseInt(fil))+'</div></div>'+
+        '<div class="rel-row-horas">'+fmtHoras(porPosto[fil].total)+'</div></div>';
+    });
+    html += '</div>';
+    html += '<div class="card"><div class="card-title">Detalhamento</div>'+
+      lista.sort(function(a,b){return a.fil-b.fil;}).map(function(s){ return solicitacaoCardHTML(s,'leitura'); }).join('')+
+      '</div>';
+  }
+  document.getElementById('relatorio-diario-content').innerHTML = html;
+}
+
+// ==================== DIRETOR: Relatório Mensal ====================
+function renderRelatorioMensal(){
+  var lista = loadAll().filter(function(s){ return s.status==='aprovado' && s.data && s.data.indexOf(STATE.relMes)===0; });
+  var totalGeral = lista.reduce(function(acc,s){ return acc+parseFloat(s.quantidade||0); },0);
+  var porPosto = {};
+  lista.forEach(function(s){ porPosto[s.fil] = (porPosto[s.fil]||0) + parseFloat(s.quantidade||0); });
+  var html = '<div class="rel-total"><div class="rel-total-num">'+fmtHoras(totalGeral)+'</div>'+
+    '<div class="rel-total-label">Total de horas extras aprovadas em '+fmtMes(STATE.relMes)+'</div></div>';
+  var fils = Object.keys(porPosto).sort(function(a,b){ return porPosto[b]-porPosto[a]; });
+  if(!fils.length){
+    html += '<div class="empty"><div class="empty-icon">📊</div><p>Nenhuma hora extra aprovada neste mês</p></div>';
+  } else {
+    html += '<div class="card"><div class="card-title">Totalizador por posto</div>';
+    fils.forEach(function(fil){
+      html += '<div class="rel-row"><div><div class="rel-row-posto">Fil. '+fil+' · '+postoNome(parseInt(fil))+'</div>'+
+        '<div class="rel-row-area">'+areaDaFilial(parseInt(fil))+'</div></div>'+
+        '<div class="rel-row-horas">'+fmtHoras(porPosto[fil])+'</div></div>';
+    });
+    html += '</div>';
+  }
+  document.getElementById('relatorio-mensal-content').innerHTML = html;
+}
+
+// ==================== CONFIG ====================
+function renderConfig(){
+  var info = document.getElementById('config-sync-info');
+  var pend = !!localStorage.getItem('he_sync_pending');
+  info.textContent = SCRIPT_URL ? (pend?'⏳ Há dados aguardando sincronização':'✅ Sincronizado') : '⚠️ SCRIPT_URL ainda não configurado neste app (veja apps_script.gs)';
+  updateSyncBar();
+}
+
+// ==================== INIT ====================
+document.addEventListener('DOMContentLoaded', function(){
+  if(!navigator.onLine) document.getElementById('offline-bar').classList.add('show');
+  window.addEventListener('online', function(){ document.getElementById('offline-bar').classList.remove('show'); sincronizar(); });
+  window.addEventListener('offline', function(){ document.getElementById('offline-bar').classList.add('show'); });
+  updateSyncBar();
+  // Sincroniza com a nuvem a cada 2 min, igual ao CRM de Visitas
+  setInterval(function(){ if(STATE.usuario) buscarNuvem(); }, 2*60*1000);
+});
+</script>
+</body>
+</html>
