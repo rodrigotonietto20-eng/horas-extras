@@ -628,6 +628,10 @@ function abrirAppShell(nomeExibido){
     : (STATE.papel==='diretor' ? 'relatorio-diario' : 'pendentes');
   var btn = document.querySelector('.nav-btn[data-screen="'+primeiraTela+'"]');
   navTo(primeiraTela, btn);
+  if(STATE.papel!=='posto'){
+    requestNotifPermission();
+    setTimeout(verificarNotificacoes, 800);
+  }
 }
 
 function logout(){
@@ -710,6 +714,38 @@ function pendentesParaMim(){
   if(STATE.papel==='area') return loadAll().filter(function(s){ return s.status==='pendente_area' && s.area===STATE.usuario; });
   if(STATE.papel==='operacoes') return loadAll().filter(function(s){ return s.status==='pendente_operacoes'; });
   return [];
+}
+
+// ==================== NOTIFICAÇÕES (alerta em cadeia: área → operações → diretor) ====================
+function requestNotifPermission(){
+  if('Notification' in window && Notification.permission==='default') Notification.requestPermission();
+}
+
+// Só notifica quando a contagem relevante AUMENTA em relação à última checagem (guardada
+// por perfil+usuário no localStorage) — evita reenviar a mesma notificação a cada refresh
+// de 2min enquanto a pendência continua ali sem mudar. Chamada no login e no timer de sync.
+function verificarNotificacoes(){
+  if(!STATE.usuario || STATE.papel==='posto') return;
+  var titulo, contagem;
+  if(STATE.papel==='area'){
+    contagem = pendentesParaMim().length;
+    titulo = '⏱️ Horas Extras — '+contagem+' solicitação(ões) aguardando sua aprovação';
+  } else if(STATE.papel==='operacoes'){
+    contagem = pendentesParaMim().length;
+    titulo = '⏱️ Horas Extras — '+contagem+' solicitação(ões) aguardando aprovação final';
+  } else if(STATE.papel==='diretor'){
+    // Diretor não aprova nada — alerta é só ciência de horas já liberadas hoje pela Operações
+    contagem = loadAll().filter(function(s){ return s.status==='aprovado' && s.data===today(); }).length;
+    titulo = '⏱️ Horas Extras — '+contagem+' hora(s) extra aprovada(s) hoje';
+  } else return;
+
+  var chave = 'he_last_notif_'+STATE.papel+'_'+STATE.usuario;
+  var anterior = parseInt(localStorage.getItem(chave)||'0');
+  if(contagem>0 && contagem>anterior && 'Notification' in window && Notification.permission==='granted'){
+    new Notification(titulo, {body:'Toque para abrir o app e ver detalhes.'});
+  }
+  localStorage.setItem(chave, contagem);
+  atualizarBadgePendentes();
 }
 
 // ==================== POSTO: Nova Solicitação ====================
@@ -814,25 +850,25 @@ function aprovarArea(id){
   var s = getSolicitacao(id); if(!s) return;
   if(!confirm('Aprovar esta solicitação e encaminhar para o Gerente de Operações?')) return;
   s.status='pendente_operacoes'; addHistorico(s,'pendente_operacoes','');
-  salvar(s); toast('✅ Aprovado, encaminhado para Operações'); renderPendentes();
+  salvar(s); toast('✅ Aprovado, encaminhado para Operações'); renderPendentes(); verificarNotificacoes();
 }
 function reprovarArea(id){
   var s = getSolicitacao(id); if(!s) return;
   var motivo = prompt('Motivo da reprovação:'); if(motivo===null) return;
   s.status='reprovado_area'; addHistorico(s,'reprovado_area',motivo);
-  salvar(s); toast('❌ Solicitação reprovada'); renderPendentes();
+  salvar(s); toast('❌ Solicitação reprovada'); renderPendentes(); verificarNotificacoes();
 }
 function aprovarOperacoes(id){
   var s = getSolicitacao(id); if(!s) return;
   if(!confirm('Aprovar esta solicitação de hora extra?')) return;
   s.status='aprovado'; addHistorico(s,'aprovado','');
-  salvar(s); toast('✅ Hora extra aprovada'); renderPendentes();
+  salvar(s); toast('✅ Hora extra aprovada'); renderPendentes(); verificarNotificacoes();
 }
 function reprovarOperacoes(id){
   var s = getSolicitacao(id); if(!s) return;
   var motivo = prompt('Motivo da reprovação:'); if(motivo===null) return;
   s.status='reprovado_operacoes'; addHistorico(s,'reprovado_operacoes',motivo);
-  salvar(s); toast('❌ Solicitação reprovada'); renderPendentes();
+  salvar(s); toast('❌ Solicitação reprovada'); renderPendentes(); verificarNotificacoes();
 }
 
 // ==================== ÁREA/OPERAÇÕES: Histórico ====================
@@ -923,8 +959,12 @@ document.addEventListener('DOMContentLoaded', function(){
   window.addEventListener('online', function(){ document.getElementById('offline-bar').classList.remove('show'); sincronizar(); });
   window.addEventListener('offline', function(){ document.getElementById('offline-bar').classList.add('show'); });
   updateSyncBar();
-  // Sincroniza com a nuvem a cada 2 min, igual ao CRM de Visitas
-  setInterval(function(){ if(STATE.usuario) buscarNuvem(); }, 2*60*1000);
+  // Sincroniza com a nuvem a cada 2 min, igual ao CRM de Visitas — além de atualizar a tela,
+  // reavalia se há solicitação nova que mereça notificação (alerta em cadeia área→operações→diretor)
+  setInterval(function(){
+    if(!STATE.usuario) return;
+    buscarNuvem(function(){ refreshVisibleScreen(); verificarNotificacoes(); });
+  }, 2*60*1000);
 });
 </script>
 </body>
