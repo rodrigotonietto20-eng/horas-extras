@@ -45,9 +45,12 @@ function doGet(e){
     var row = rows[i];
     if(!row[0]) continue; // sem ID, linha vazia
     var obj = {};
-    CAMPOS.forEach(function(c){
+    CAMPOS.forEach(function(c, idx){
       var col = headers.indexOf(c.header);
-      if(col<0) return;
+      // Se o texto do cabeçalho não bate (célula vazia, renomeada, acento diferente...),
+      // cai pra posição fixa da coluna — CAMPOS sempre está na mesma ordem que doPost
+      // escreve, então a coluna certa continua sendo lida mesmo com o cabeçalho quebrado.
+      if(col<0) col = idx;
       var val = row[col];
       if(c.json){ try{ val = val ? JSON.parse(val) : []; }catch(err){ val = []; } }
       else if(c.num){ val = val===''||val==null ? 0 : Number(val); }
@@ -82,6 +85,7 @@ function doPost(e){
 
   var data = sheet.getDataRange().getValues();
   var idCol = headers.indexOf('ID');
+  if(idCol<0) idCol = 0; // mesma rede de segurança do doGet — ID é sempre a 1ª coluna
   for(var i=data.length-1;i>=1;i--){
     if(idsNovos[data[i][idCol]]) sheet.deleteRow(i+1);
   }
