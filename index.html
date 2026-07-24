@@ -407,7 +407,7 @@ var STATUS_INFO = {
 
 // PREENCHER APÓS CRIAR O GOOGLE APPS SCRIPT (ver apps_script.gs neste mesmo projeto) —
 // sem isso o app funciona só localmente neste aparelho, sem sincronizar com a equipe.
-var SCRIPT_URL = '';
+var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwcFD6GNukxwC5-IeUfGkMeg-aPtuXhOgX1qNuynkfZVtfV3Fu_2JTwjIUF9rl9ERSwpA/exec';
 
 // ==================== HELPERS ====================
 function areaDaFilial(fil){
@@ -453,6 +453,14 @@ function loadAll(){
 }
 function getSolicitacao(id){ return loadAll().find(function(s){ return s.id===id; }); }
 
+// Rede de segurança pro mesmo tipo de corrupção já visto no CRM de Visitas: o Sheets pode
+// devolver "data" como timestamp completo ("2026-07-24T03:00:00.000Z") em vez de "HH:MM"
+// mesmo com o Apps Script corrigido, se alguém redigitar a célula manualmente na planilha.
+function normalizarSolicitacao(s){
+  if(s.data && typeof s.data==='string' && s.data.length>10) s.data = s.data.substring(0,10);
+  return s;
+}
+
 function salvar(s){
   var arr = loadLocal();
   var idx = arr.findIndex(function(x){ return x.id===s.id; });
@@ -485,7 +493,7 @@ function buscarNuvem(onDone){
     .then(function(r){ return r.json(); })
     .then(function(json){
       if(json.ok && json.solicitacoes){
-        localStorage.setItem('he_cache', JSON.stringify(json.solicitacoes));
+        localStorage.setItem('he_cache', JSON.stringify(json.solicitacoes.map(normalizarSolicitacao)));
         if(onDone) onDone(); else refreshVisibleScreen();
       }
     })

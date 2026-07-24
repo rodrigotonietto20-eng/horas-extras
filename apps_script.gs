@@ -26,7 +26,7 @@ var CAMPOS = [
   {header:'Funcionario',  key:'funcionario'},
   {header:'Quantidade',   key:'quantidade',   num:true},
   {header:'Motivo',       key:'motivo'},
-  {header:'Data',         key:'data'},
+  {header:'Data',         key:'data',         date:true},
   {header:'Status',       key:'status'},
   {header:'Historico',    key:'historico',    json:true},
   {header:'CriadoEm',     key:'criadoEm',     num:true}
@@ -51,6 +51,13 @@ function doGet(e){
       var val = row[col];
       if(c.json){ try{ val = val ? JSON.parse(val) : []; }catch(err){ val = []; } }
       else if(c.num){ val = val===''||val==null ? 0 : Number(val); }
+      else if(c.date && Object.prototype.toString.call(val)==='[object Date]'){
+        // A célula "Data" recebe uma string tipo "2026-07-24", mas o Sheets detecta o
+        // formato e converte pra um valor de data de verdade — sem isso, getValues()
+        // devolve um objeto Date que vira timestamp completo ao serializar (vira lixo
+        // tipo "2026-07-24T03:00:00.000Z" em vez de "2026-07-24" na tela do app).
+        val = Utilities.formatDate(val, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+      }
       obj[c.key] = val;
     });
     solicitacoes.push(obj);
