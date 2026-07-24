@@ -402,7 +402,8 @@ var STATUS_INFO = {
   pendente_operacoes:  { label:'Aguardando Operações',  cor:'#1565c0', bg:'#e3f2fd' },
   aprovado:            { label:'Aprovado',              cor:'#2e7d32', bg:'#e8f5e9' },
   reprovado_area:      { label:'Reprovado (Área)',      cor:'#b71c1c', bg:'#ffebee' },
-  reprovado_operacoes: { label:'Reprovado (Operações)', cor:'#b71c1c', bg:'#ffebee' }
+  reprovado_operacoes: { label:'Reprovado (Operações)', cor:'#b71c1c', bg:'#ffebee' },
+  excluido:            { label:'Excluído',              cor:'#607d8b', bg:'#eceff1' }
 };
 
 // PREENCHER APÓS CRIAR O GOOGLE APPS SCRIPT (ver apps_script.gs neste mesmo projeto) —
@@ -758,6 +759,12 @@ function solicitacaoCardHTML(s, contexto){
       '<button class="btn btn-sm btn-ok" onclick="aprovarOperacoes(\''+s.id+'\')">✅ Aprovar</button>'+
       '<button class="btn btn-sm btn-danger" onclick="reprovarOperacoes(\''+s.id+'\')">❌ Reprovar</button>'+
       '</div>';
+  } else if(contexto==='minha'){
+    // Só o próprio posto que criou a solicitação vê esse botão — corrige um envio errado
+    // sem precisar pedir pra área/operações reprovar. Disponível em qualquer status.
+    botoes = '<div class="btn-row">'+
+      '<button class="btn btn-sm btn-danger" onclick="excluirSolicitacao(\''+s.id+'\',event)">🗑️ Excluir</button>'+
+      '</div>';
   }
   return '<div class="sol-card" style="border-left-color:'+st.cor+'">'+
     '<div class="sol-top">'+
@@ -775,11 +782,23 @@ function solicitacaoCardHTML(s, contexto){
 
 // ==================== POSTO: Minhas Solicitações ====================
 function renderMinhasSolicitacoes(){
-  var lista = loadAll().filter(function(s){ return s.fil===STATE.postoFil; })
+  var lista = loadAll().filter(function(s){ return s.fil===STATE.postoFil && s.status!=='excluido'; })
     .sort(function(a,b){ return b.criadoEm-a.criadoEm; });
   var wrap = document.getElementById('minhas-solicitacoes-list');
   if(!lista.length){ wrap.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><p>Nenhuma solicitação ainda</p></div>'; return; }
-  wrap.innerHTML = lista.map(function(s){ return solicitacaoCardHTML(s,'leitura'); }).join('');
+  wrap.innerHTML = lista.map(function(s){ return solicitacaoCardHTML(s,'minha'); }).join('');
+}
+
+// Exclusão feita pelo próprio posto (corrige um lançamento errado). Não apaga a linha da
+// planilha de verdade (o backend só faz upsert) — marca status "excluido" e some de todas
+// as telas (Minhas Solicitações, Pendentes/Histórico da área e operações, relatórios do
+// Diretor), sem exigir nenhuma mudança no Apps Script nem reimplantação.
+function excluirSolicitacao(id, ev){
+  if(ev){ ev.stopPropagation(); ev.preventDefault(); }
+  if(!confirm('Excluir esta solicitação? Essa ação não pode ser desfeita.')) return;
+  var s = getSolicitacao(id); if(!s) return;
+  s.status = 'excluido'; addHistorico(s,'excluido','');
+  salvar(s); toast('🗑️ Solicitação excluída'); renderMinhasSolicitacoes();
 }
 
 // ==================== ÁREA/OPERAÇÕES: Pendentes ====================
@@ -820,7 +839,7 @@ function reprovarOperacoes(id){
 function renderHistorico(){
   var lista;
   if(STATE.papel==='area'){
-    lista = loadAll().filter(function(s){ return s.area===STATE.usuario && s.status!=='pendente_area'; });
+    lista = loadAll().filter(function(s){ return s.area===STATE.usuario && s.status!=='pendente_area' && s.status!=='excluido'; });
   } else {
     lista = loadAll().filter(function(s){ return s.status==='aprovado' || s.status==='reprovado_operacoes'; });
   }
@@ -839,7 +858,7 @@ function mudarDiaRelatorio(delta){
   renderRelatorioDiario();
 }
 function renderRelatorioDiario(){
-  var lista = loadAll().filter(function(s){ return s.data===STATE.relDia; });
+  var lista = loadAll().filter(function(s){ return s.data===STATE.relDia && s.status!=='excluido'; });
   var totalGeral = lista.reduce(function(acc,s){ return acc+parseFloat(s.quantidade||0); },0);
   var porPosto = {};
   lista.forEach(function(s){
