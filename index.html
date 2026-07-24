@@ -795,9 +795,10 @@ function solicitacaoCardHTML(s, contexto){
       '<button class="btn btn-sm btn-ok" onclick="aprovarOperacoes(\''+s.id+'\')">✅ Aprovar</button>'+
       '<button class="btn btn-sm btn-danger" onclick="reprovarOperacoes(\''+s.id+'\')">❌ Reprovar</button>'+
       '</div>';
-  } else if(contexto==='minha'){
+  } else if(contexto==='minha' && s.status!=='aprovado'){
     // Só o próprio posto que criou a solicitação vê esse botão — corrige um envio errado
-    // sem precisar pedir pra área/operações reprovar. Disponível em qualquer status.
+    // sem precisar pedir pra área/operações reprovar. Some assim que a Operações aprova
+    // (status 'aprovado') — depois de confirmada, ninguém mais pode excluir.
     botoes = '<div class="btn-row">'+
       '<button class="btn btn-sm btn-danger" onclick="excluirSolicitacao(\''+s.id+'\',event)">🗑️ Excluir</button>'+
       '</div>';
@@ -831,8 +832,9 @@ function renderMinhasSolicitacoes(){
 // Diretor), sem exigir nenhuma mudança no Apps Script nem reimplantação.
 function excluirSolicitacao(id, ev){
   if(ev){ ev.stopPropagation(); ev.preventDefault(); }
-  if(!confirm('Excluir esta solicitação? Essa ação não pode ser desfeita.')) return;
   var s = getSolicitacao(id); if(!s) return;
+  if(s.status==='aprovado'){ toast('⚠️ Já foi aprovada pela Operações, não pode mais ser excluída'); return; }
+  if(!confirm('Excluir esta solicitação? Essa ação não pode ser desfeita.')) return;
   s.status = 'excluido'; addHistorico(s,'excluido','');
   salvar(s); toast('🗑️ Solicitação excluída'); renderMinhasSolicitacoes();
 }
