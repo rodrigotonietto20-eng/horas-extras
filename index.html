@@ -79,6 +79,7 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(180deg,#eef2f7
 .sol-meta{font-size:12px;color:var(--txt2);margin-top:4px;line-height:1.5}
 .sol-motivo{font-size:12px;color:var(--txt2);margin-top:6px;font-style:italic;background:var(--cinza2);border-radius:8px;padding:8px 10px}
 .sol-obs-rejeicao{font-size:12px;color:var(--vermelho);margin-top:6px;background:#ffebee;border-radius:8px;padding:8px 10px}
+.sol-obs-nota{font-size:12px;color:var(--txt2);margin-top:6px;background:var(--pri-light);border-radius:8px;padding:8px 10px}
 .sol-horas{font-size:22px;font-weight:800;color:var(--pri)}
 
 /* EMPTY */
@@ -779,11 +780,14 @@ function salvarNovaSolicitacao(){
 // ==================== CARD DE SOLICITAÇÃO ====================
 function solicitacaoCardHTML(s, contexto){
   var st = STATUS_INFO[s.status]||{label:s.status,cor:'#607d8b',bg:'#eceff1'};
-  var rejeicao = '';
-  if(s.status==='reprovado_area' || s.status==='reprovado_operacoes'){
-    var ultimo = (s.historico||[]).slice().reverse().find(function(h){ return h.status===s.status; });
-    if(ultimo && ultimo.obs) rejeicao = '<div class="sol-obs-rejeicao">❌ '+ultimo.obs+'</div>';
-  }
+  // Observações de cada etapa (motivo de reprovação, ou nota obrigatória da área/operações
+  // ao aprovar) — qualquer entrada do histórico que tenha "obs" preenchido vira uma linha,
+  // em vermelho se foi reprovação, neutra se foi aprovação.
+  var rejeicao = (s.historico||[]).filter(function(h){ return h.obs; }).map(function(h){
+    var neg = h.status==='reprovado_area' || h.status==='reprovado_operacoes';
+    var stLbl = (STATUS_INFO[h.status]||{}).label || h.status;
+    return '<div class="'+(neg?'sol-obs-rejeicao':'sol-obs-nota')+'">'+(neg?'❌':'📝')+' <b>'+h.usuario+'</b> — '+stLbl+': '+h.obs+'</div>';
+  }).join('');
   var botoes = '';
   if(contexto==='pendente-area'){
     botoes = '<div class="btn-row">'+
@@ -850,8 +854,10 @@ function renderPendentes(){
 }
 function aprovarArea(id){
   var s = getSolicitacao(id); if(!s) return;
-  if(!confirm('Aprovar esta solicitação e encaminhar para o Gerente de Operações?')) return;
-  s.status='pendente_operacoes'; addHistorico(s,'pendente_operacoes','');
+  var obs = prompt('Observação (obrigatória) antes de aprovar e encaminhar para a Operações:');
+  if(obs===null) return; // cancelou
+  if(!obs.trim()){ toast('⚠️ Observação é obrigatória pra aprovar'); return; }
+  s.status='pendente_operacoes'; addHistorico(s,'pendente_operacoes',obs.trim());
   salvar(s); toast('✅ Aprovado, encaminhado para Operações'); renderPendentes(); verificarNotificacoes();
 }
 function reprovarArea(id){
@@ -862,8 +868,10 @@ function reprovarArea(id){
 }
 function aprovarOperacoes(id){
   var s = getSolicitacao(id); if(!s) return;
-  if(!confirm('Aprovar esta solicitação de hora extra?')) return;
-  s.status='aprovado'; addHistorico(s,'aprovado','');
+  var obs = prompt('Observação (obrigatória) antes de aprovar esta hora extra:');
+  if(obs===null) return; // cancelou
+  if(!obs.trim()){ toast('⚠️ Observação é obrigatória pra aprovar'); return; }
+  s.status='aprovado'; addHistorico(s,'aprovado',obs.trim());
   salvar(s); toast('✅ Hora extra aprovada'); renderPendentes(); verificarNotificacoes();
 }
 function reprovarOperacoes(id){
