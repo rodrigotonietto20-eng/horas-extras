@@ -656,6 +656,8 @@ function montarBottomNav(){
     itens = [
       {screen:'pendentes', ico:'⏳', label:'Pendentes', badge:true},
       {screen:'historico', ico:'📖', label:'Histórico'},
+      {screen:'relatorio-diario', ico:'📅', label:'Diário'},
+      {screen:'relatorio-mensal', ico:'📊', label:'Mensal'},
       {screen:'config', ico:'⚙️', label:'Config'}
     ];
   } else if(STATE.papel==='diretor'){
@@ -904,7 +906,12 @@ function mudarDiaRelatorio(delta){
   renderRelatorioDiario();
 }
 function renderRelatorioDiario(){
-  var lista = loadAll().filter(function(s){ return s.data===STATE.relDia && s.status!=='excluido'; });
+  // Gerente de Área só vê o próprio território (mesmo escopo já usado em Pendentes/Histórico);
+  // Operações e Diretor veem a rede inteira, já que Operações aprova de qualquer área.
+  var escopoArea = STATE.papel==='area';
+  var lista = loadAll().filter(function(s){
+    return s.data===STATE.relDia && s.status!=='excluido' && (!escopoArea || s.area===STATE.usuario);
+  });
   var totalGeral = lista.reduce(function(acc,s){ return acc+parseFloat(s.quantidade||0); },0);
   var porPosto = {};
   lista.forEach(function(s){
@@ -913,7 +920,7 @@ function renderRelatorioDiario(){
     porPosto[s.fil].itens.push(s);
   });
   var html = '<div class="rel-total"><div class="rel-total-num">'+fmtHoras(totalGeral)+'</div>'+
-    '<div class="rel-total-label">Total de horas extras solicitadas em '+fmtDate(STATE.relDia)+'</div></div>';
+    '<div class="rel-total-label">Total de horas extras solicitadas em '+fmtDate(STATE.relDia)+(escopoArea?' — sua área':'')+'</div></div>';
   var fils = Object.keys(porPosto).sort(function(a,b){ return a-b; });
   if(!fils.length){
     html += '<div class="empty"><div class="empty-icon">📅</div><p>Nenhuma solicitação nesta data</p></div>';
@@ -932,14 +939,17 @@ function renderRelatorioDiario(){
   document.getElementById('relatorio-diario-content').innerHTML = html;
 }
 
-// ==================== DIRETOR: Relatório Mensal ====================
+// ==================== RELATÓRIO MENSAL (Diretor, Operações, e Área escopado) ====================
 function renderRelatorioMensal(){
-  var lista = loadAll().filter(function(s){ return s.status==='aprovado' && s.data && s.data.indexOf(STATE.relMes)===0; });
+  var escopoArea = STATE.papel==='area';
+  var lista = loadAll().filter(function(s){
+    return s.status==='aprovado' && s.data && s.data.indexOf(STATE.relMes)===0 && (!escopoArea || s.area===STATE.usuario);
+  });
   var totalGeral = lista.reduce(function(acc,s){ return acc+parseFloat(s.quantidade||0); },0);
   var porPosto = {};
   lista.forEach(function(s){ porPosto[s.fil] = (porPosto[s.fil]||0) + parseFloat(s.quantidade||0); });
   var html = '<div class="rel-total"><div class="rel-total-num">'+fmtHoras(totalGeral)+'</div>'+
-    '<div class="rel-total-label">Total de horas extras aprovadas em '+fmtMes(STATE.relMes)+'</div></div>';
+    '<div class="rel-total-label">Total de horas extras aprovadas em '+fmtMes(STATE.relMes)+(escopoArea?' — sua área':'')+'</div></div>';
   var fils = Object.keys(porPosto).sort(function(a,b){ return porPosto[b]-porPosto[a]; });
   if(!fils.length){
     html += '<div class="empty"><div class="empty-icon">📊</div><p>Nenhuma hora extra aprovada neste mês</p></div>';
