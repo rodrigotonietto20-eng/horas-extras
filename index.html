@@ -830,9 +830,19 @@ function solicitacaoCardHTML(s, contexto){
 function renderMinhasSolicitacoes(){
   var lista = loadAll().filter(function(s){ return s.fil===STATE.postoFil && s.status!=='excluido'; })
     .sort(function(a,b){ return b.criadoEm-a.criadoEm; });
+  // Totalizador do mês (só horas já aprovadas) direto na tela do próprio posto — mesmo
+  // dado que o gerente vê agrupado no Relatório Mensal, mas aqui já escopado pra essa filial.
+  var totalMes = loadAll().filter(function(s){
+    return s.fil===STATE.postoFil && s.status==='aprovado' && s.data && s.data.indexOf(mesAtual())===0;
+  }).reduce(function(acc,s){ return acc+parseFloat(s.quantidade||0); },0);
+  var totalHTML = '<div class="rel-total"><div class="rel-total-num">'+fmtHoras(totalMes)+'</div>'+
+    '<div class="rel-total-label">Horas extras aprovadas em '+fmtMes(mesAtual())+'</div></div>';
   var wrap = document.getElementById('minhas-solicitacoes-list');
-  if(!lista.length){ wrap.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><p>Nenhuma solicitação ainda</p></div>'; return; }
-  wrap.innerHTML = lista.map(function(s){ return solicitacaoCardHTML(s,'minha'); }).join('');
+  if(!lista.length){
+    wrap.innerHTML = totalHTML+'<div class="empty"><div class="empty-icon">📋</div><p>Nenhuma solicitação ainda</p></div>';
+    return;
+  }
+  wrap.innerHTML = totalHTML+lista.map(function(s){ return solicitacaoCardHTML(s,'minha'); }).join('');
 }
 
 // Exclusão feita pelo próprio posto (corrige um lançamento errado). Não apaga a linha da
