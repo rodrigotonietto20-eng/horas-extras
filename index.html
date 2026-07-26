@@ -288,22 +288,17 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(180deg,#eef2f7
       </div>
     </div>
 
-    <!-- ===== POSTO: Minhas Solicitações ===== -->
-    <div id="screen-minhas-solicitacoes" class="screen hidden">
-      <div id="minhas-solicitacoes-list"></div>
-    </div>
-
-    <!-- ===== ÁREA/OPERAÇÕES: Pendentes ===== -->
+    <!-- ===== POSTO/ÁREA/OPERAÇÕES: Pendentes ===== -->
     <div id="screen-pendentes" class="screen hidden">
       <div id="pendentes-list"></div>
     </div>
 
-    <!-- ===== ÁREA/OPERAÇÕES: Histórico ===== -->
+    <!-- ===== POSTO/ÁREA/OPERAÇÕES: Histórico ===== -->
     <div id="screen-historico" class="screen hidden">
       <div id="historico-list"></div>
     </div>
 
-    <!-- ===== DIRETOR: Relatório Diário ===== -->
+    <!-- ===== RELATÓRIO DIÁRIO (todo mundo exceto posto vê a rede/área; posto vê só a filial) ===== -->
     <div id="screen-relatorio-diario" class="screen hidden">
       <div class="rel-nav">
         <button class="btn btn-secondary btn-sm" onclick="mudarDiaRelatorio(-1)">← Anterior</button>
@@ -504,7 +499,6 @@ function buscarNuvem(onDone){
 
 function refreshVisibleScreen(){
   switch(STATE.screen){
-    case 'minhas-solicitacoes': renderMinhasSolicitacoes(); break;
     case 'pendentes': renderPendentes(); break;
     case 'historico': renderHistorico(); break;
     case 'relatorio-diario': renderRelatorioDiario(); break;
@@ -625,8 +619,7 @@ function abrirAppShell(nomeExibido){
   document.getElementById('bottom-nav').classList.remove('hidden');
   document.getElementById('user-badge').textContent = nomeExibido+' · Sair';
   montarBottomNav();
-  var primeiraTela = STATE.papel==='posto' ? 'minhas-solicitacoes'
-    : (STATE.papel==='diretor' ? 'relatorio-diario' : 'pendentes');
+  var primeiraTela = STATE.papel==='diretor' ? 'relatorio-diario' : 'pendentes';
   var btn = document.querySelector('.nav-btn[data-screen="'+primeiraTela+'"]');
   navTo(primeiraTela, btn);
   if(STATE.papel!=='posto'){
@@ -649,7 +642,10 @@ function montarBottomNav(){
   if(STATE.papel==='posto'){
     itens = [
       {screen:'nova-solicitacao', ico:'➕', label:'Solicitar'},
-      {screen:'minhas-solicitacoes', ico:'📋', label:'Minhas'},
+      {screen:'pendentes', ico:'⏳', label:'Pendentes', badge:true},
+      {screen:'historico', ico:'📖', label:'Histórico'},
+      {screen:'relatorio-diario', ico:'📅', label:'Diário'},
+      {screen:'relatorio-mensal', ico:'📊', label:'Mensal'},
       {screen:'config', ico:'⚙️', label:'Config'}
     ];
   } else if(STATE.papel==='area' || STATE.papel==='operacoes'){
@@ -689,7 +685,6 @@ function navTo(name, btn){
     btn.classList.add('active');
   }
   if(name==='nova-solicitacao') setupNovaSolicitacao();
-  if(name==='minhas-solicitacoes') renderMinhasSolicitacoes();
   if(name==='pendentes'){ renderPendentes(); buscarNuvem(function(){ if(STATE.screen==='pendentes') renderPendentes(); }); }
   if(name==='historico') renderHistorico();
   if(name==='relatorio-diario'){
@@ -716,6 +711,9 @@ function atualizarBadgePendentes(){
 function pendentesParaMim(){
   if(STATE.papel==='area') return loadAll().filter(function(s){ return s.status==='pendente_area' && s.area===STATE.usuario; });
   if(STATE.papel==='operacoes') return loadAll().filter(function(s){ return s.status==='pendente_operacoes'; });
+  // Posto: não "aprova" nada, mas "pendente" aqui significa "minhas solicitações que
+  // ainda não terminaram de percorrer a cadeia" — mesmo nome, sentido adaptado.
+  if(STATE.papel==='posto') return loadAll().filter(function(s){ return s.fil===STATE.postoFil && (s.status==='pendente_area' || s.status==='pendente_operacoes'); });
   return [];
 }
 
@@ -775,8 +773,8 @@ function salvarNovaSolicitacao(){
   addHistorico(s, 'pendente_area', '');
   salvar(s);
   toast('📤 Solicitação enviada para aprovação');
-  var btn = document.querySelector('.nav-btn[data-screen="minhas-solicitacoes"]');
-  navTo('minhas-solicitacoes', btn);
+  var btn = document.querySelector('.nav-btn[data-screen="pendentes"]');
+  navTo('pendentes', btn);
 }
 
 // ==================== CARD DE SOLICITAÇÃO ====================
@@ -823,42 +821,25 @@ function solicitacaoCardHTML(s, contexto){
     '</div>';
 }
 
-// ==================== POSTO: Minhas Solicitações ====================
-function renderMinhasSolicitacoes(){
-  var lista = loadAll().filter(function(s){ return s.fil===STATE.postoFil && s.status!=='excluido'; })
-    .sort(function(a,b){ return b.criadoEm-a.criadoEm; });
-  // Totalizador do mês (só horas já aprovadas) direto na tela do próprio posto — mesmo
-  // dado que o gerente vê agrupado no Relatório Mensal, mas aqui já escopado pra essa filial.
-  var totalMes = loadAll().filter(function(s){
-    return s.fil===STATE.postoFil && s.status==='aprovado' && s.data && s.data.indexOf(mesAtual())===0;
-  }).reduce(function(acc,s){ return acc+parseFloat(s.quantidade||0); },0);
-  var totalHTML = '<div class="rel-total"><div class="rel-total-num">'+fmtHoras(totalMes)+'</div>'+
-    '<div class="rel-total-label">Horas extras aprovadas em '+fmtMes(mesAtual())+'</div></div>';
-  var wrap = document.getElementById('minhas-solicitacoes-list');
-  if(!lista.length){
-    wrap.innerHTML = totalHTML+'<div class="empty"><div class="empty-icon">📋</div><p>Nenhuma solicitação ainda</p></div>';
-    return;
-  }
-  wrap.innerHTML = totalHTML+lista.map(function(s){ return solicitacaoCardHTML(s,'minha'); }).join('');
-}
-
 // Exclusão feita pelo próprio posto (corrige um lançamento errado). Não apaga a linha da
 // planilha de verdade (o backend só faz upsert) — marca status "excluido" e some de todas
-// as telas (Minhas Solicitações, Pendentes/Histórico da área e operações, relatórios do
-// Diretor), sem exigir nenhuma mudança no Apps Script nem reimplantação.
+// as telas (Pendentes/Histórico do posto, da área e operações, relatórios do Diretor),
+// sem exigir nenhuma mudança no Apps Script nem reimplantação.
 function excluirSolicitacao(id, ev){
   if(ev){ ev.stopPropagation(); ev.preventDefault(); }
   var s = getSolicitacao(id); if(!s) return;
   if(s.status==='aprovado'){ toast('⚠️ Já foi aprovada pela Operações, não pode mais ser excluída'); return; }
   if(!confirm('Excluir esta solicitação? Essa ação não pode ser desfeita.')) return;
   s.status = 'excluido'; addHistorico(s,'excluido','');
-  salvar(s); toast('🗑️ Solicitação excluída'); renderMinhasSolicitacoes();
+  salvar(s); toast('🗑️ Solicitação excluída'); refreshVisibleScreen();
 }
 
 // ==================== ÁREA/OPERAÇÕES: Pendentes ====================
 function renderPendentes(){
   var lista = pendentesParaMim().sort(function(a,b){ return a.criadoEm-b.criadoEm; });
-  var contexto = STATE.papel==='area' ? 'pendente-area' : 'pendente-operacoes';
+  // Posto usa o mesmo contexto 'minha' da tela de histórico dele — sem botões de
+  // aprovar/reprovar (quem decide é área/operações), só o de excluir se ainda não aprovado.
+  var contexto = STATE.papel==='area' ? 'pendente-area' : (STATE.papel==='operacoes' ? 'pendente-operacoes' : 'minha');
   var wrap = document.getElementById('pendentes-list');
   if(!lista.length){ wrap.innerHTML = '<div class="empty"><div class="empty-icon">✅</div><p>Nenhuma solicitação pendente</p></div>'; }
   else wrap.innerHTML = lista.map(function(s){ return solicitacaoCardHTML(s,contexto); }).join('');
@@ -896,15 +877,22 @@ function reprovarOperacoes(id){
 // ==================== ÁREA/OPERAÇÕES: Histórico ====================
 function renderHistorico(){
   var lista;
+  var contexto = 'leitura';
   if(STATE.papel==='area'){
     lista = loadAll().filter(function(s){ return s.area===STATE.usuario && s.status!=='pendente_area' && s.status!=='excluido'; });
+  } else if(STATE.papel==='posto'){
+    // Já decididas (aprovada ou reprovada em qualquer etapa) daquela filial. Contexto
+    // 'minha' (não 'leitura') pra manter o botão de excluir numa reprovada, mesmo
+    // comportamento que já existia quando isso era uma lista única "Minhas Solicitações".
+    lista = loadAll().filter(function(s){ return s.fil===STATE.postoFil && s.status!=='pendente_area' && s.status!=='pendente_operacoes' && s.status!=='excluido'; });
+    contexto = 'minha';
   } else {
     lista = loadAll().filter(function(s){ return s.status==='aprovado' || s.status==='reprovado_operacoes'; });
   }
   lista.sort(function(a,b){ return b.criadoEm-a.criadoEm; });
   var wrap = document.getElementById('historico-list');
   if(!lista.length){ wrap.innerHTML = '<div class="empty"><div class="empty-icon">📖</div><p>Nenhum histórico ainda</p></div>'; return; }
-  wrap.innerHTML = lista.map(function(s){ return solicitacaoCardHTML(s,'leitura'); }).join('');
+  wrap.innerHTML = lista.map(function(s){ return solicitacaoCardHTML(s,contexto); }).join('');
 }
 
 // ==================== DIRETOR: Relatório Diário ====================
@@ -917,10 +905,12 @@ function mudarDiaRelatorio(delta){
 }
 function renderRelatorioDiario(){
   // Gerente de Área só vê o próprio território (mesmo escopo já usado em Pendentes/Histórico);
-  // Operações e Diretor veem a rede inteira, já que Operações aprova de qualquer área.
+  // Operações e Diretor veem a rede inteira, já que Operações aprova de qualquer área;
+  // Posto vê só a própria filial (assim o gerente do posto também acompanha as horas dele).
   var escopoArea = STATE.papel==='area';
+  var escopoFilial = STATE.papel==='posto';
   var lista = loadAll().filter(function(s){
-    return s.data===STATE.relDia && s.status!=='excluido' && (!escopoArea || s.area===STATE.usuario);
+    return s.data===STATE.relDia && s.status!=='excluido' && (!escopoArea || s.area===STATE.usuario) && (!escopoFilial || s.fil===STATE.postoFil);
   });
   var totalGeral = lista.reduce(function(acc,s){ return acc+parseFloat(s.quantidade||0); },0);
   var porPosto = {};
@@ -929,19 +919,23 @@ function renderRelatorioDiario(){
     porPosto[s.fil].total += parseFloat(s.quantidade||0);
     porPosto[s.fil].itens.push(s);
   });
+  var sufixo = escopoFilial ? ' — sua filial' : (escopoArea?' — sua área':'');
   var html = '<div class="rel-total"><div class="rel-total-num">'+fmtHoras(totalGeral)+'</div>'+
-    '<div class="rel-total-label">Total de horas extras solicitadas em '+fmtDate(STATE.relDia)+(escopoArea?' — sua área':'')+'</div></div>';
+    '<div class="rel-total-label">Total de horas extras solicitadas em '+fmtDate(STATE.relDia)+sufixo+'</div></div>';
   var fils = Object.keys(porPosto).sort(function(a,b){ return a-b; });
   if(!fils.length){
     html += '<div class="empty"><div class="empty-icon">📅</div><p>Nenhuma solicitação nesta data</p></div>';
   } else {
-    html += '<div class="card"><div class="card-title">Por posto</div>';
-    fils.forEach(function(fil){
-      html += '<div class="rel-row"><div><div class="rel-row-posto">Fil. '+fil+' · '+postoNome(parseInt(fil))+'</div>'+
-        '<div class="rel-row-area">'+areaDaFilial(parseInt(fil))+'</div></div>'+
-        '<div class="rel-row-horas">'+fmtHoras(porPosto[fil].total)+'</div></div>';
-    });
-    html += '</div>';
+    // "Por posto" não faz sentido escopado numa única filial (seria o mesmo total de novo).
+    if(!escopoFilial){
+      html += '<div class="card"><div class="card-title">Por posto</div>';
+      fils.forEach(function(fil){
+        html += '<div class="rel-row"><div><div class="rel-row-posto">Fil. '+fil+' · '+postoNome(parseInt(fil))+'</div>'+
+          '<div class="rel-row-area">'+areaDaFilial(parseInt(fil))+'</div></div>'+
+          '<div class="rel-row-horas">'+fmtHoras(porPosto[fil].total)+'</div></div>';
+      });
+      html += '</div>';
+    }
     html += '<div class="card"><div class="card-title">Detalhamento</div>'+
       lista.sort(function(a,b){return a.fil-b.fil;}).map(function(s){ return solicitacaoCardHTML(s,'leitura'); }).join('')+
       '</div>';
@@ -952,18 +946,21 @@ function renderRelatorioDiario(){
 // ==================== RELATÓRIO MENSAL (Diretor, Operações, e Área escopado) ====================
 function renderRelatorioMensal(){
   var escopoArea = STATE.papel==='area';
+  var escopoFilial = STATE.papel==='posto';
   var lista = loadAll().filter(function(s){
-    return s.status==='aprovado' && s.data && s.data.indexOf(STATE.relMes)===0 && (!escopoArea || s.area===STATE.usuario);
+    return s.status==='aprovado' && s.data && s.data.indexOf(STATE.relMes)===0 && (!escopoArea || s.area===STATE.usuario) && (!escopoFilial || s.fil===STATE.postoFil);
   });
   var totalGeral = lista.reduce(function(acc,s){ return acc+parseFloat(s.quantidade||0); },0);
   var porPosto = {};
   lista.forEach(function(s){ porPosto[s.fil] = (porPosto[s.fil]||0) + parseFloat(s.quantidade||0); });
+  var sufixo = escopoFilial ? ' — sua filial' : (escopoArea?' — sua área':'');
   var html = '<div class="rel-total"><div class="rel-total-num">'+fmtHoras(totalGeral)+'</div>'+
-    '<div class="rel-total-label">Total de horas extras aprovadas em '+fmtMes(STATE.relMes)+(escopoArea?' — sua área':'')+'</div></div>';
+    '<div class="rel-total-label">Total de horas extras aprovadas em '+fmtMes(STATE.relMes)+sufixo+'</div></div>';
   var fils = Object.keys(porPosto).sort(function(a,b){ return porPosto[b]-porPosto[a]; });
   if(!fils.length){
     html += '<div class="empty"><div class="empty-icon">📊</div><p>Nenhuma hora extra aprovada neste mês</p></div>';
-  } else {
+  } else if(!escopoFilial){
+    // Totalizador por posto não faz sentido escopado numa única filial (seria o mesmo total de novo).
     html += '<div class="card"><div class="card-title">Totalizador por posto</div>';
     fils.forEach(function(fil){
       html += '<div class="rel-row"><div><div class="rel-row-posto">Fil. '+fil+' · '+postoNome(parseInt(fil))+'</div>'+
