@@ -151,6 +151,13 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(180deg,#eef2f7
 .rel-row-area{font-size:11px;color:var(--txt2)}
 .rel-row-horas{font-weight:800;font-size:15px;color:var(--pri)}
 
+/* GRÁFICO DE BARRAS (Relatório Mensal — horas por mês / por posto) */
+.bar-row{display:flex;align-items:center;gap:8px;padding:6px 0}
+.bar-label{width:64px;flex-shrink:0;font-size:11px;color:var(--txt2);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-track{flex:1;background:var(--cinza2);border-radius:6px;height:14px;overflow:hidden}
+.bar-fill{height:100%;background:linear-gradient(90deg,var(--pri3),var(--pri));border-radius:6px;transition:width .3s}
+.bar-value{width:46px;flex-shrink:0;text-align:right;font-size:12px;font-weight:800;color:var(--pri)}
+
 /* OFFLINE / SYNC */
 .offline-bar{position:fixed;top:0;left:0;right:0;z-index:400;background:#b71c1c;color:#fff;text-align:center;font-size:12px;font-weight:600;padding:5px 12px;display:none}
 .offline-bar.show{display:block}
@@ -944,6 +951,30 @@ function renderRelatorioDiario(){
 }
 
 // ==================== RELATÓRIO MENSAL (Diretor, Operações, e Área escopado) ====================
+// Meses "yyyy-mm" dos últimos n meses terminando em mesRef (inclusive) — usado no gráfico
+// de tendência "Horas por mês", pra sempre mostrar uma janela rolante a partir do mês
+// selecionado no relatório, não uma lista fixa.
+function mesesAteAtual(mesRef, n){
+  var p = mesRef.split('-');
+  var ano = parseInt(p[0]), mes = parseInt(p[1]);
+  var arr = [];
+  for(var i=n-1;i>=0;i--){
+    var d = new Date(ano, mes-1-i, 1);
+    arr.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'));
+  }
+  return arr;
+}
+function fmtMesCurto(m){ if(!m) return '—'; var p=m.split('-'); return MESES_EXT[parseInt(p[1])-1].slice(0,3)+'/'+p[0].slice(2); }
+function barChartHTML(labels, valores){
+  var max = Math.max.apply(null, valores.concat([1]));
+  return labels.map(function(lbl,i){
+    var pct = Math.round(valores[i]/max*100);
+    return '<div class="bar-row"><div class="bar-label" title="'+lbl+'">'+lbl+'</div>'+
+      '<div class="bar-track"><div class="bar-fill" style="width:'+pct+'%"></div></div>'+
+      '<div class="bar-value">'+fmtHoras(valores[i])+'</div></div>';
+  }).join('');
+}
+
 function renderRelatorioMensal(){
   var escopoArea = STATE.papel==='area';
   var escopoFilial = STATE.papel==='posto';
@@ -956,12 +987,29 @@ function renderRelatorioMensal(){
   var sufixo = escopoFilial ? ' — sua filial' : (escopoArea?' — sua área':'');
   var html = '<div class="rel-total"><div class="rel-total-num">'+fmtHoras(totalGeral)+'</div>'+
     '<div class="rel-total-label">Total de horas extras aprovadas em '+fmtMes(STATE.relMes)+sufixo+'</div></div>';
+
+  // Gráfico "Horas por mês" — últimos 6 meses até o selecionado, mesmo escopo do relatório
+  // (rede/área/filial). Zera sozinho a cada virada de mês: cada barra é um filtro por
+  // "yyyy-mm" recalculado na hora, não um contador acumulado que precisasse ser resetado.
+  var meses = mesesAteAtual(STATE.relMes, 6);
+  var totaisPorMes = meses.map(function(m){
+    return loadAll().filter(function(s){
+      return s.status==='aprovado' && s.data && s.data.indexOf(m)===0 && (!escopoArea || s.area===STATE.usuario) && (!escopoFilial || s.fil===STATE.postoFil);
+    }).reduce(function(acc,s){ return acc+parseFloat(s.quantidade||0); },0);
+  });
+  html += '<div class="card"><div class="card-title">📈 Horas por mês</div>'+
+    barChartHTML(meses.map(fmtMesCurto), totaisPorMes)+'</div>';
+
   var fils = Object.keys(porPosto).sort(function(a,b){ return porPosto[b]-porPosto[a]; });
   if(!fils.length){
     html += '<div class="empty"><div class="empty-icon">📊</div><p>Nenhuma hora extra aprovada neste mês</p></div>';
   } else if(!escopoFilial){
-    // Totalizador por posto não faz sentido escopado numa única filial (seria o mesmo total de novo).
-    html += '<div class="card"><div class="card-title">Totalizador por posto</div>';
+    // Gráfico + detalhamento por posto não fazem sentido escopados numa única filial
+    // (seria o mesmo total de novo, sem nada a comparar).
+    html += '<div class="card"><div class="card-title">📊 Horas por posto</div>'+
+      barChartHTML(fils.map(function(f){ return 'Fil.'+f; }), fils.map(function(f){ return porPosto[f]; }))+
+      '</div>';
+    html += '<div class="card"><div class="card-title">Detalhamento por posto</div>';
     fils.forEach(function(fil){
       html += '<div class="rel-row"><div><div class="rel-row-posto">Fil. '+fil+' · '+postoNome(parseInt(fil))+'</div>'+
         '<div class="rel-row-area">'+areaDaFilial(parseInt(fil))+'</div></div>'+
@@ -980,12 +1028,37 @@ function renderConfig(){
   updateSyncBar();
 }
 
+// Selo de horas do mês em cada card da tela de login (organograma), antes de logar —
+// mesmo padrão do "renderLoginAgendamentos" do CRM de Visitas. Gerente de Área vê a soma
+// só da própria área; Luiz (Operações) vê a soma de todas as áreas (total da rede),
+// já que ele aprova de qualquer uma. Sempre calcula com mesAtual() na hora (não guarda
+// nada acumulado), então zera sozinho assim que vira o mês.
+function renderLoginTotais(){
+  var mes = mesAtual();
+  var aprovadasMes = loadAll().filter(function(s){ return s.status==='aprovado' && s.data && s.data.indexOf(mes)===0; });
+  var porArea = {};
+  aprovadasMes.forEach(function(s){ porArea[s.area] = (porArea[s.area]||0) + parseFloat(s.quantidade||0); });
+  var totalRede = aprovadasMes.reduce(function(acc,s){ return acc+parseFloat(s.quantidade||0); },0);
+  document.querySelectorAll('[data-user]').forEach(function(btn){
+    var user = btn.dataset.user;
+    var g = GERENTES[user];
+    if(!g || (g.papel!=='area' && g.papel!=='operacoes')) return;
+    var horas = g.papel==='operacoes' ? totalRede : (porArea[user]||0);
+    var el = btn.querySelector('.login-horas');
+    if(!el){ el = document.createElement('small'); el.className='login-horas'; btn.appendChild(el); }
+    el.style.cssText = 'display:block;margin-top:2px;font-weight:800;color:#e65100';
+    el.textContent = '⏱️ '+fmtHoras(horas)+' este mês';
+  });
+}
+
 // ==================== INIT ====================
 document.addEventListener('DOMContentLoaded', function(){
   if(!navigator.onLine) document.getElementById('offline-bar').classList.add('show');
   window.addEventListener('online', function(){ document.getElementById('offline-bar').classList.remove('show'); sincronizar(); });
   window.addEventListener('offline', function(){ document.getElementById('offline-bar').classList.add('show'); });
   updateSyncBar();
+  renderLoginTotais();
+  if(navigator.onLine && SCRIPT_URL) buscarNuvem(function(){ renderLoginTotais(); });
   // Sincroniza com a nuvem a cada 2 min, igual ao CRM de Visitas — além de atualizar a tela,
   // reavalia se há solicitação nova que mereça notificação (alerta em cadeia área→operações→diretor)
   setInterval(function(){
