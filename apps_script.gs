@@ -32,8 +32,48 @@ var CAMPOS = [
   {header:'CriadoEm',     key:'criadoEm',     num:true}
 ];
 
+// Catálogo de filiais/postos (2026-07-28) — antes só existia hardcoded no index.html (objeto
+// POSTOS), sem jeito de cadastrar filial nova sem editar código. Aba nova, auto-criada aqui na
+// primeira chamada (mesmo padrão já usado no app de Abertura de Postos pra abas novas).
+var CAMPOS_POSTO = [
+  {header:'Area',   key:'area'},
+  {header:'Nome',   key:'nome'},
+  {header:'Filial', key:'fil', num:true}
+];
+
 function getSheet(){
   return SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Solicitacoes');
+}
+
+function getSheetPostos(){
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName('Postos');
+  if(!sh){
+    sh = ss.insertSheet('Postos');
+    sh.getRange(1,1,1,CAMPOS_POSTO.length).setValues([CAMPOS_POSTO.map(function(c){ return c.header; })]);
+  }
+  return sh;
+}
+
+function lerPostos(){
+  var sheet = getSheetPostos();
+  var rows = sheet.getDataRange().getValues();
+  var headers = rows[0];
+  var out = [];
+  for(var i=1;i<rows.length;i++){
+    var row = rows[i];
+    if(!row[0]) continue;
+    var obj = {};
+    CAMPOS_POSTO.forEach(function(c, idx){
+      var col = headers.indexOf(c.header);
+      if(col<0) col = idx;
+      var val = row[col];
+      if(c.num) val = val===''||val==null ? 0 : Number(val);
+      obj[c.key] = val;
+    });
+    out.push(obj);
+  }
+  return out;
 }
 
 function doGet(e){
@@ -65,12 +105,29 @@ function doGet(e){
     });
     solicitacoes.push(obj);
   }
-  return ContentService.createTextOutput(JSON.stringify({ok:true, solicitacoes:solicitacoes}))
+  return ContentService.createTextOutput(JSON.stringify({ok:true, solicitacoes:solicitacoes, postos:lerPostos()}))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
 function doPost(e){
   var body = JSON.parse(e.postData.contents);
+
+  if(body.postos){
+    var novosP = body.postos || [];
+    if(novosP.length){
+      var sheetP = getSheetPostos();
+      var idsNovosP = {};
+      novosP.forEach(function(p){ idsNovosP[p.fil] = true; });
+      var dataP = sheetP.getDataRange().getValues();
+      for(var i=dataP.length-1;i>=1;i--){ if(idsNovosP[dataP[i][2]]) sheetP.deleteRow(i+1); }
+      var linhasP = novosP.map(function(p){
+        return CAMPOS_POSTO.map(function(c){ return p[c.key]==null ? '' : p[c.key]; });
+      });
+      sheetP.getRange(sheetP.getLastRow()+1, 1, linhasP.length, CAMPOS_POSTO.length).setValues(linhasP);
+    }
+    return ContentService.createTextOutput(JSON.stringify({ok:true})).setMimeType(ContentService.MimeType.JSON);
+  }
+
   var novas = body.solicitacoes || [];
   if(!novas.length) return ContentService.createTextOutput(JSON.stringify({ok:true}));
 

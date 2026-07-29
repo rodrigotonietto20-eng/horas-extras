@@ -331,6 +331,15 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(180deg,#eef2f7
         <div id="config-sync-info" style="font-size:12px;color:var(--txt2);margin-bottom:10px">—</div>
         <button class="btn btn-secondary btn-full" onclick="sincronizarManual()">🔄 Sincronizar agora</button>
       </div>
+      <div class="card hidden" id="card-nova-filial">
+        <div class="card-title">🏪 Cadastrar Nova Filial</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <select id="nova-filial-area" style="border:1.5px solid #ddd;border-radius:8px;padding:9px 12px;font-size:13px;font-family:inherit"></select>
+          <input id="nova-filial-nome" type="text" placeholder="Nome da filial" style="border:1.5px solid #ddd;border-radius:8px;padding:9px 12px;font-size:13px;font-family:inherit">
+          <input id="nova-filial-fil" type="number" placeholder="Número da filial" style="border:1.5px solid #ddd;border-radius:8px;padding:9px 12px;font-size:13px;font-family:inherit">
+          <button class="btn btn-primary btn-full btn-sm" onclick="adicionarFilial()">+ Adicionar Filial</button>
+        </div>
+      </div>
       <div class="card">
         <div class="card-title">ℹ️ Sobre</div>
         <div style="font-size:13px;color:var(--txt2);line-height:1.6">
@@ -412,6 +421,53 @@ var STATUS_INFO = {
 // PREENCHER APÓS CRIAR O GOOGLE APPS SCRIPT (ver apps_script.gs neste mesmo projeto) —
 // sem isso o app funciona só localmente neste aparelho, sem sincronizar com a equipe.
 var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzDiL3YZ4oRMGnooYIm7JWqo_I5nNDB_i43BYPdZY2EkoMPMgW0CBwzH0yTOrFdKpCDdw/exec';
+
+// ==================== CATÁLOGO DE FILIAIS (criar filial nova, 2026-07-28) ====================
+// POSTOS acima é hardcoded (mesmo padrão do CRM), mas agora dá pra cadastrar filial nova sem
+// editar código: entra numa aba "Postos" própria da planilha (auto-criada pelo Apps Script) e
+// é aplicada em cima do objeto POSTOS em memória. Precisa do apps_script.gs atualizado publicado
+// (aceita {postos:[...]} no POST e devolve postos no GET) — sem isso o botão só funciona neste
+// aparelho (fica salvo em localStorage, mas não sincroniza pra ninguém).
+function aplicarPostosExtras(lista){
+  (lista||[]).forEach(function(p){
+    if(!p || !p.fil || !p.area || !POSTOS[p.area]) return;
+    var arr = POSTOS[p.area];
+    var idx = arr.findIndex(function(x){ return x.fil===p.fil; });
+    if(idx>=0) arr[idx] = {nome:p.nome, fil:p.fil}; else arr.push({nome:p.nome, fil:p.fil});
+  });
+}
+function carregarPostosExtrasCache(){
+  var lista = []; try{ lista = JSON.parse(localStorage.getItem('he_postos_extras')||'[]'); }catch(e){}
+  aplicarPostosExtras(lista);
+}
+function todasAsFiliais(){
+  var out = [];
+  Object.keys(POSTOS).forEach(function(area){
+    POSTOS[area].forEach(function(p){ out.push({area:area, nome:p.nome, fil:p.fil}); });
+  });
+  return out;
+}
+function syncPostosCloud(){
+  if(!SCRIPT_URL) return;
+  fetch(SCRIPT_URL, { method:'POST', mode:'no-cors', body: JSON.stringify({postos:todasAsFiliais()}), headers:{'Content-Type':'application/json'} }).catch(function(){});
+}
+function adicionarFilial(){
+  var area = document.getElementById('nova-filial-area').value;
+  var nome = document.getElementById('nova-filial-nome').value.trim().toUpperCase();
+  var fil = parseInt(document.getElementById('nova-filial-fil').value);
+  if(!area||!nome||!fil){ toast('Informe área, nome e número da filial'); return; }
+  if(areaDaFilial(fil)){ toast('Filial '+fil+' já existe'); return; }
+  var novo = {area:area, nome:nome, fil:fil};
+  aplicarPostosExtras([novo]);
+  var extras = []; try{ extras = JSON.parse(localStorage.getItem('he_postos_extras')||'[]'); }catch(e){}
+  extras.push(novo);
+  localStorage.setItem('he_postos_extras', JSON.stringify(extras));
+  syncPostosCloud();
+  document.getElementById('nova-filial-nome').value = '';
+  document.getElementById('nova-filial-fil').value = '';
+  renderConfig();
+  toast('✅ Filial '+fil+' ('+nome+') cadastrada');
+}
 
 // ==================== HELPERS ====================
 function areaDaFilial(fil){
@@ -498,8 +554,12 @@ function buscarNuvem(onDone){
     .then(function(json){
       if(json.ok && json.solicitacoes){
         localStorage.setItem('he_cache', JSON.stringify(json.solicitacoes.map(normalizarSolicitacao)));
-        if(onDone) onDone(); else refreshVisibleScreen();
       }
+      if(json.ok && json.postos && json.postos.length){
+        localStorage.setItem('he_postos_extras', JSON.stringify(json.postos));
+        aplicarPostosExtras(json.postos);
+      }
+      if(json.ok){ if(onDone) onDone(); else refreshVisibleScreen(); }
     })
     .catch(function(){});
 }
@@ -1026,6 +1086,14 @@ function renderConfig(){
   var pend = !!localStorage.getItem('he_sync_pending');
   info.textContent = SCRIPT_URL ? (pend?'⏳ Há dados aguardando sincronização':'✅ Sincronizado') : '⚠️ SCRIPT_URL ainda não configurado neste app (veja apps_script.gs)';
   updateSyncBar();
+
+  // Cadastrar filial: só gerente (área/operações/diretor) — o posto não gerencia o catálogo
+  var cardFilial = document.getElementById('card-nova-filial');
+  cardFilial.classList.toggle('hidden', STATE.tipoUsuario!=='gerente');
+  if(STATE.tipoUsuario==='gerente'){
+    var sel = document.getElementById('nova-filial-area');
+    sel.innerHTML = Object.keys(POSTOS).map(function(a){ return '<option value="'+a+'">'+a+'</option>'; }).join('');
+  }
 }
 
 // Selo de horas do mês em cada card da tela de login (organograma), antes de logar —
@@ -1053,6 +1121,7 @@ function renderLoginTotais(){
 
 // ==================== INIT ====================
 document.addEventListener('DOMContentLoaded', function(){
+  carregarPostosExtrasCache();
   if(!navigator.onLine) document.getElementById('offline-bar').classList.add('show');
   window.addEventListener('online', function(){ document.getElementById('offline-bar').classList.remove('show'); sincronizar(); });
   window.addEventListener('offline', function(){ document.getElementById('offline-bar').classList.add('show'); });
