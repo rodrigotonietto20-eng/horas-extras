@@ -55,17 +55,23 @@ function getSheetPostos(){
   return sh;
 }
 
+// Normaliza texto de cabeçalho (trim + minúsculas) antes de comparar — sem isso, alguém
+// retypar "funcionario" em vez de "Funcionario" na planilha (foi exatamente o que aconteceu
+// e deixou o nome do funcionário sumir de todas as telas de alçada) faz o indexOf falhar e
+// cair no fallback posicional; melhor nem precisar do fallback pra essa causa específica.
+function normalizarHeader(h){ return String(h||'').trim().toLowerCase(); }
+
 function lerPostos(){
   var sheet = getSheetPostos();
   var rows = sheet.getDataRange().getValues();
-  var headers = rows[0];
+  var headers = rows[0].map(normalizarHeader);
   var out = [];
   for(var i=1;i<rows.length;i++){
     var row = rows[i];
     if(!row[0]) continue;
     var obj = {};
     CAMPOS_POSTO.forEach(function(c, idx){
-      var col = headers.indexOf(c.header);
+      var col = headers.indexOf(normalizarHeader(c.header));
       if(col<0) col = idx;
       var val = row[col];
       if(c.num) val = val===''||val==null ? 0 : Number(val);
@@ -79,14 +85,14 @@ function lerPostos(){
 function doGet(e){
   var sheet = getSheet();
   var rows = sheet.getDataRange().getValues();
-  var headers = rows[0];
+  var headers = rows[0].map(normalizarHeader);
   var solicitacoes = [];
   for(var i=1;i<rows.length;i++){
     var row = rows[i];
     if(!row[0]) continue; // sem ID, linha vazia
     var obj = {};
     CAMPOS.forEach(function(c, idx){
-      var col = headers.indexOf(c.header);
+      var col = headers.indexOf(normalizarHeader(c.header));
       // Se o texto do cabeçalho não bate (célula vazia, renomeada, acento diferente...),
       // cai pra posição fixa da coluna — CAMPOS sempre está na mesma ordem que doPost
       // escreve, então a coluna certa continua sendo lida mesmo com o cabeçalho quebrado.
