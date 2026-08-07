@@ -504,6 +504,15 @@ function postoNome(fil){
   return 'Filial '+fil;
 }
 function corDaArea(area){ return (GERENTES[area]&&GERENTES[area].cor)||'#607d8b'; }
+// Nomes distintos dos funcionários das solicitações de um posto, pra aparecer junto do total
+// nas linhas-resumo "por posto" dos relatórios (antes só mostravam posto+área, sem dizer de quem).
+function nomesFuncionarios(itens){
+  var nomes = [];
+  itens.forEach(function(s){
+    if(s.funcionario && nomes.indexOf(s.funcionario)<0) nomes.push(s.funcionario);
+  });
+  return nomes.length ? nomes.join(', ') : '—';
+}
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 function localDateStr(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function today(){ return localDateStr(new Date()); }
@@ -711,10 +720,10 @@ function abrirAppShell(nomeExibido){
   var primeiraTela = STATE.papel==='diretor' ? 'relatorio-diario' : 'pendentes';
   var btn = document.querySelector('.nav-btn[data-screen="'+primeiraTela+'"]');
   navTo(primeiraTela, btn);
-  if(STATE.papel!=='posto'){
-    requestNotifPermission();
-    setTimeout(verificarNotificacoes, 800);
-  }
+  // Posto também recebe notificação agora (decisão final da Área/Operações sobre a
+  // solicitação dele) — antes só área/operações/diretor tinham esse alerta habilitado.
+  requestNotifPermission();
+  setTimeout(verificarNotificacoes, 800);
 }
 
 function logout(){
@@ -815,7 +824,8 @@ function requestNotifPermission(){
 // por perfil+usuário no localStorage) — evita reenviar a mesma notificação a cada refresh
 // de 2min enquanto a pendência continua ali sem mudar. Chamada no login e no timer de sync.
 function verificarNotificacoes(){
-  if(!STATE.usuario || STATE.papel==='posto') return;
+  if(!STATE.usuario) return;
+  if(STATE.papel==='posto') return verificarNotificacaoPosto();
   var titulo, contagem;
   if(STATE.papel==='area'){
     contagem = pendentesParaMim().length;
@@ -835,6 +845,37 @@ function verificarNotificacoes(){
     new Notification(titulo, {body:'Toque para abrir o app e ver detalhes.'});
   }
   localStorage.setItem(chave, contagem);
+  atualizarBadgePendentes();
+}
+
+// Notifica o posto quando UMA DAS SUAS solicitações recebe decisão final — reprovada pela
+// Área (nem chega na Operações), reprovada pela Operações, ou aprovada. Diferente do padrão
+// "contagem que aumenta" usado acima (que só dá um número genérico): aqui rastreamos por ID
+// já notificado (localStorage por filial) pra poder dizer o desfecho de cada solicitação
+// específica, não só "tem X pendência". Na primeira vez que o posto abre o app depois desta
+// atualização, só grava a "foto" do que já está decidido sem notificar nada — sem essa
+// rede de segurança, todo o histórico antigo já decidido dispararia notificação de uma vez.
+function verificarNotificacaoPosto(){
+  var chave = 'he_notif_final_'+STATE.postoFil;
+  var bruto = localStorage.getItem(chave);
+  var primeiraVez = bruto===null;
+  var jaNotificados = [];
+  try{ jaNotificados = bruto ? JSON.parse(bruto) : []; }catch(e){ jaNotificados = []; }
+  var decididas = loadAll().filter(function(s){
+    return s.fil===STATE.postoFil && jaNotificados.indexOf(s.id)<0 &&
+      (s.status==='aprovado' || s.status==='reprovado_area' || s.status==='reprovado_operacoes');
+  });
+  if(!primeiraVez && decididas.length && 'Notification' in window && Notification.permission==='granted'){
+    decididas.forEach(function(s){
+      var titulo = s.status==='aprovado' ? '✅ Hora extra aprovada'
+        : s.status==='reprovado_area' ? '❌ Hora extra reprovada (Área)'
+        : '❌ Hora extra reprovada (Operações)';
+      var corpo = (s.funcionario ? s.funcionario+' — ' : '') + fmtHoras(s.quantidade) + ' em ' + fmtDate(s.data);
+      new Notification(titulo, {body:corpo});
+    });
+  }
+  jaNotificados = jaNotificados.concat(decididas.map(function(s){ return s.id; }));
+  localStorage.setItem(chave, JSON.stringify(jaNotificados));
   atualizarBadgePendentes();
 }
 
@@ -1020,7 +1061,7 @@ function renderRelatorioDiario(){
       html += '<div class="card"><div class="card-title">Por posto</div>';
       fils.forEach(function(fil){
         html += '<div class="rel-row"><div><div class="rel-row-posto">Fil. '+fil+' · '+postoNome(parseInt(fil))+'</div>'+
-          '<div class="rel-row-area">'+areaDaFilial(parseInt(fil))+'</div></div>'+
+          '<div class="rel-row-area">'+areaDaFilial(parseInt(fil))+' · '+nomesFuncionarios(porPosto[fil].itens)+'</div></div>'+
           '<div class="rel-row-horas">'+fmtHoras(porPosto[fil].total)+'</div></div>';
       });
       html += '</div>';
@@ -1065,7 +1106,11 @@ function renderRelatorioMensal(){
   });
   var totalGeral = lista.reduce(function(acc,s){ return acc+parseFloat(s.quantidade||0); },0);
   var porPosto = {};
-  lista.forEach(function(s){ porPosto[s.fil] = (porPosto[s.fil]||0) + parseFloat(s.quantidade||0); });
+  lista.forEach(function(s){
+    if(!porPosto[s.fil]) porPosto[s.fil] = {total:0, itens:[]};
+    porPosto[s.fil].total += parseFloat(s.quantidade||0);
+    porPosto[s.fil].itens.push(s);
+  });
   var sufixo = escopoFilial ? ' — sua filial' : (escopoArea?' — sua área':'');
   var html = '<div class="rel-total"><div class="rel-total-num">'+fmtHoras(totalGeral)+'</div>'+
     '<div class="rel-total-label">Total de horas extras aprovadas em '+fmtMes(STATE.relMes)+sufixo+'</div></div>';
@@ -1082,20 +1127,20 @@ function renderRelatorioMensal(){
   html += '<div class="card"><div class="card-title">📈 Horas por mês</div>'+
     barChartHTML(meses.map(fmtMesCurto), totaisPorMes)+'</div>';
 
-  var fils = Object.keys(porPosto).sort(function(a,b){ return porPosto[b]-porPosto[a]; });
+  var fils = Object.keys(porPosto).sort(function(a,b){ return porPosto[b].total-porPosto[a].total; });
   if(!fils.length){
     html += '<div class="empty"><div class="empty-icon">📊</div><p>Nenhuma hora extra aprovada neste mês</p></div>';
   } else if(!escopoFilial){
     // Gráfico + detalhamento por posto não fazem sentido escopados numa única filial
     // (seria o mesmo total de novo, sem nada a comparar).
     html += '<div class="card"><div class="card-title">📊 Horas por posto</div>'+
-      barChartHTML(fils.map(function(f){ return 'Fil.'+f; }), fils.map(function(f){ return porPosto[f]; }))+
+      barChartHTML(fils.map(function(f){ return 'Fil.'+f; }), fils.map(function(f){ return porPosto[f].total; }))+
       '</div>';
     html += '<div class="card"><div class="card-title">Detalhamento por posto <span style="text-transform:none;font-weight:400;font-size:11px">(toque pra ver o histórico completo)</span></div>';
     fils.forEach(function(fil){
       html += '<div class="rel-row" onclick="abrirHistoricoPosto(\''+fil+'\')"><div><div class="rel-row-posto">Fil. '+fil+' · '+postoNome(parseInt(fil))+'</div>'+
-        '<div class="rel-row-area">'+areaDaFilial(parseInt(fil))+'</div></div>'+
-        '<div class="rel-row-horas">'+fmtHoras(porPosto[fil])+'</div></div>';
+        '<div class="rel-row-area">'+areaDaFilial(parseInt(fil))+' · '+nomesFuncionarios(porPosto[fil].itens)+'</div></div>'+
+        '<div class="rel-row-horas">'+fmtHoras(porPosto[fil].total)+'</div></div>';
     });
     html += '</div>';
   }
@@ -1145,21 +1190,35 @@ function renderConfig(){
 // só da própria área; Luiz (Operações) vê a soma de todas as áreas (total da rede),
 // já que ele aprova de qualquer uma. Sempre calcula com mesAtual() na hora (não guarda
 // nada acumulado), então zera sozinho assim que vira o mês.
+// Aprovadas e negadas aparecem separadas (nunca somadas juntas) — negada não deve inflar
+// nem diluir o total de horas extras de verdade concedidas. "Negada" pro gerente de área é
+// qualquer desfecho negativo do próprio território (reprovada por ele mesmo, ou que ele
+// liberou mas a Operações depois reprovou); pro Luiz é só o que ele mesmo reprovou (rede
+// toda), simétrico ao total aprovado dele já ser rede toda.
 function renderLoginTotais(){
   var mes = mesAtual();
-  var aprovadasMes = loadAll().filter(function(s){ return s.status==='aprovado' && s.data && s.data.indexOf(mes)===0; });
-  var porArea = {};
-  aprovadasMes.forEach(function(s){ porArea[s.area] = (porArea[s.area]||0) + parseFloat(s.quantidade||0); });
-  var totalRede = aprovadasMes.reduce(function(acc,s){ return acc+parseFloat(s.quantidade||0); },0);
+  var todasMes = loadAll().filter(function(s){ return s.data && s.data.indexOf(mes)===0; });
+  var aprovadasMes = todasMes.filter(function(s){ return s.status==='aprovado'; });
+  var negadasArea = {};
+  todasMes.filter(function(s){ return s.status==='reprovado_area' || s.status==='reprovado_operacoes'; })
+    .forEach(function(s){ negadasArea[s.area] = (negadasArea[s.area]||0) + parseFloat(s.quantidade||0); });
+  var negadoOperacoes = todasMes.filter(function(s){ return s.status==='reprovado_operacoes'; })
+    .reduce(function(acc,s){ return acc+parseFloat(s.quantidade||0); },0);
+  var aprovadoPorArea = {};
+  aprovadasMes.forEach(function(s){ aprovadoPorArea[s.area] = (aprovadoPorArea[s.area]||0) + parseFloat(s.quantidade||0); });
+  var aprovadoRede = aprovadasMes.reduce(function(acc,s){ return acc+parseFloat(s.quantidade||0); },0);
   document.querySelectorAll('[data-user]').forEach(function(btn){
     var user = btn.dataset.user;
     var g = GERENTES[user];
     if(!g || (g.papel!=='area' && g.papel!=='operacoes')) return;
-    var horas = g.papel==='operacoes' ? totalRede : (porArea[user]||0);
+    var horasAprov = g.papel==='operacoes' ? aprovadoRede : (aprovadoPorArea[user]||0);
+    var horasNeg = g.papel==='operacoes' ? negadoOperacoes : (negadasArea[user]||0);
     var el = btn.querySelector('.login-horas');
     if(!el){ el = document.createElement('small'); el.className='login-horas'; btn.appendChild(el); }
-    el.style.cssText = 'display:block;margin-top:2px;font-weight:800;color:#e65100';
-    el.textContent = '⏱️ '+fmtHoras(horas)+' este mês';
+    el.style.cssText = 'display:block;margin-top:2px;font-weight:800';
+    el.innerHTML = '<span style="color:#e65100">✅ '+fmtHoras(horasAprov)+'</span>'
+      + (horasNeg>0 ? ' <span style="color:#c62828">· ❌ '+fmtHoras(horasNeg)+'</span>' : '')
+      + ' este mês';
   });
 }
 
