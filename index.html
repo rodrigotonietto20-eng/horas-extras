@@ -1225,7 +1225,8 @@ function renderConfig(){
 // toda), simétrico ao total aprovado dele já ser rede toda.
 function renderLoginTotais(){
   var mes = mesAtual();
-  var todasMes = loadAll().filter(function(s){ return s.data && s.data.indexOf(mes)===0; });
+  var todos = loadAll();
+  var todasMes = todos.filter(function(s){ return s.data && s.data.indexOf(mes)===0; });
   var aprovadasMes = todasMes.filter(function(s){ return s.status==='aprovado'; });
   var negadasArea = {};
   todasMes.filter(function(s){ return s.status==='reprovado_area' || s.status==='reprovado_operacoes'; })
@@ -1235,19 +1236,30 @@ function renderLoginTotais(){
   var aprovadoPorArea = {};
   aprovadasMes.forEach(function(s){ aprovadoPorArea[s.area] = (aprovadoPorArea[s.area]||0) + parseFloat(s.quantidade||0); });
   var aprovadoRede = aprovadasMes.reduce(function(acc,s){ return acc+parseFloat(s.quantidade||0); },0);
+  // Pendente NÃO é filtrado pelo mês corrente — é "quanto está esperando ação dessa pessoa agora",
+  // independente de quando a hora foi trabalhada. Gerente de área vê pendente_area da própria
+  // área (fila que ele ainda não decidiu); Operações vê pendente_operacoes de toda a rede (fila
+  // que só ele decide, depois que a área já aprovou).
+  var pendenteAreaPorArea = {};
+  todos.filter(function(s){ return s.status==='pendente_area'; })
+    .forEach(function(s){ pendenteAreaPorArea[s.area] = (pendenteAreaPorArea[s.area]||0) + parseFloat(s.quantidade||0); });
+  var pendenteOperacoesRede = todos.filter(function(s){ return s.status==='pendente_operacoes'; })
+    .reduce(function(acc,s){ return acc+parseFloat(s.quantidade||0); },0);
   document.querySelectorAll('[data-user]').forEach(function(btn){
     var user = btn.dataset.user;
     var g = GERENTES[user];
     if(!g || (g.papel!=='area' && g.papel!=='operacoes')) return;
     var horasAprov = g.papel==='operacoes' ? aprovadoRede : (aprovadoPorArea[user]||0);
     var horasNeg = g.papel==='operacoes' ? negadoOperacoes : (negadasArea[user]||0);
+    var horasPend = g.papel==='operacoes' ? pendenteOperacoesRede : (pendenteAreaPorArea[user]||0);
     var el = btn.querySelector('.login-horas');
     if(!el){ el = document.createElement('small'); el.className='login-horas'; btn.appendChild(el); }
     el.style.cssText = 'display:block;margin-top:2px;font-weight:800;line-height:1.5';
-    // Palavra por extenso (não só o emoji) e sempre mostra as duas linhas, mesmo com 0h —
+    // Palavra por extenso (não só o emoji) e sempre mostra as linhas, mesmo com 0h —
     // sem isso, um gerente sem nenhuma reprovada no mês (caso legítimo, não é bug) ficava
     // parecendo que a contagem de reprovadas nem existia pra ele.
-    el.innerHTML = '<div style="color:#2e7d32">✅ Aprovadas: '+fmtHoras(horasAprov)+'</div>'
+    el.innerHTML = (horasPend>0 ? '<div style="color:#e65100">⏳ Pendentes: '+fmtHoras(horasPend)+'</div>' : '<div style="color:#8a8f98">⏳ Pendentes: 0h</div>')
+      + '<div style="color:#2e7d32">✅ Aprovadas: '+fmtHoras(horasAprov)+'</div>'
       + '<div style="color:#c62828">❌ Reprovadas: '+fmtHoras(horasNeg)+'</div>';
   });
 }
