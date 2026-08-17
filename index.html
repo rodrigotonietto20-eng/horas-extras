@@ -565,7 +565,15 @@ function sincronizar(){
   if(!data.length || !SCRIPT_URL) return;
   if(!navigator.onLine){ localStorage.setItem('he_sync_pending','1'); updateSyncBar(); return; }
   fetch(SCRIPT_URL, { method:'POST', mode:'no-cors', body: JSON.stringify({solicitacoes:data}), headers:{'Content-Type':'application/json'} })
-    .then(function(){ localStorage.removeItem('he_sync_pending'); updateSyncBar(); })
+    .then(function(){
+      // Limpa o local após o envio: sem isso, este aparelho reenviaria pra sempre a versão
+      // antiga de cada solicitação que ele já tocou, sobrescrevendo aprovações feitas por
+      // outros dispositivos depois. loadAll() volta a confiar no cache (he_cache), atualizado
+      // pela próxima buscarNuvem() com o estado real e mais recente da planilha.
+      saveLocal([]);
+      localStorage.removeItem('he_sync_pending'); updateSyncBar();
+      buscarNuvem(); // atualiza o cache já com o estado mais recente, evitando um piscar de tela desatualizada
+    })
     .catch(function(){ localStorage.setItem('he_sync_pending','1'); updateSyncBar(); });
 }
 
