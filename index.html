@@ -1164,6 +1164,37 @@ function renderRelatorioMensal(){
     html += '<div class="card"><div class="card-title">📊 Horas por posto</div>'+
       barChartHTML(fils.map(function(f){ return 'Fil.'+f; }), fils.map(function(f){ return porPosto[f].total; }))+
       '</div>';
+  }
+
+  // "Horas não aprovadas por posto": tudo que ainda não virou 'aprovado' no mês selecionado
+  // (pendente_area + pendente_operacoes + reprovado_area + reprovado_operacoes) — mostra onde
+  // o backlog de aprovação está concentrado, não só quem já foi liberado.
+  var listaNaoAprovada = loadAll().filter(function(s){
+    return s.status!=='aprovado' && s.status!=='excluido' && s.data && s.data.indexOf(STATE.relMes)===0
+      && (!escopoArea || s.area===STATE.usuario) && (!escopoFilial || s.fil===STATE.postoFil);
+  });
+  var porPostoNaoAprovado = {};
+  listaNaoAprovada.forEach(function(s){
+    if(!porPostoNaoAprovado[s.fil]) porPostoNaoAprovado[s.fil] = {total:0, itens:[]};
+    porPostoNaoAprovado[s.fil].total += parseFloat(s.quantidade||0);
+    porPostoNaoAprovado[s.fil].itens.push(s);
+  });
+  var totalNaoAprovado = listaNaoAprovada.reduce(function(acc,s){ return acc+parseFloat(s.quantidade||0); },0);
+  var filsNao = Object.keys(porPostoNaoAprovado).sort(function(a,b){ return porPostoNaoAprovado[b].total-porPostoNaoAprovado[a].total; });
+  if(filsNao.length){
+    html += '<div class="card"><div class="card-title">⏳ Horas não aprovadas por posto <span style="text-transform:none;font-weight:400;font-size:11px">('+fmtHoras(totalNaoAprovado)+' no total — pendente ou reprovada)</span></div>'+
+      (escopoFilial ? '' : barChartHTML(filsNao.map(function(f){ return 'Fil.'+f; }), filsNao.map(function(f){ return porPostoNaoAprovado[f].total; })))+
+      '</div>';
+    html += '<div class="card"><div class="card-title">Detalhamento — não aprovadas <span style="text-transform:none;font-weight:400;font-size:11px">(toque pra ver o histórico completo)</span></div>';
+    filsNao.forEach(function(fil){
+      html += '<div class="rel-row" onclick="abrirHistoricoPosto(\''+fil+'\')"><div><div class="rel-row-posto">Fil. '+fil+' · '+postoNome(parseInt(fil))+'</div>'+
+        '<div class="rel-row-area">'+areaDaFilial(parseInt(fil))+' · '+nomesFuncionarios(porPostoNaoAprovado[fil].itens)+'</div></div>'+
+        '<div class="rel-row-horas" style="color:#e65100">'+fmtHoras(porPostoNaoAprovado[fil].total)+'</div></div>';
+    });
+    html += '</div>';
+  }
+
+  if(fils.length && !escopoFilial){
     html += '<div class="card"><div class="card-title">Detalhamento por posto <span style="text-transform:none;font-weight:400;font-size:11px">(toque pra ver o histórico completo)</span></div>';
     fils.forEach(function(fil){
       html += '<div class="rel-row" onclick="abrirHistoricoPosto(\''+fil+'\')"><div><div class="rel-row-posto">Fil. '+fil+' · '+postoNome(parseInt(fil))+'</div>'+
