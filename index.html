@@ -236,6 +236,10 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(180deg,#eef2f7
       <span>🏪 Acesso do Posto</span>
     </button>
   </div>
+
+  <div style="width:100%;max-width:340px;margin-top:18px">
+    <button class="btn btn-secondary btn-full" id="btn-sync-capa" onclick="sincronizarCapa()">🔄 Atualizar dados</button>
+  </div>
 </div><!-- /screen-login -->
 
 <!-- ==================== SELEÇÃO DE POSTO ==================== -->
@@ -575,6 +579,22 @@ function sincronizar(){
       buscarNuvem(); // atualiza o cache já com o estado mais recente, evitando um piscar de tela desatualizada
     })
     .catch(function(){ localStorage.setItem('he_sync_pending','1'); updateSyncBar(); });
+}
+
+// Botão "Atualizar dados" na capa (antes do login) — mesma lógica de sincronizarManual,
+// mas dá feedback direto no próprio botão (tela de login não tem a barra de status da config)
+// e também atualiza os selos de horas de cada gerente exibidos na capa.
+function sincronizarCapa(){
+  if(!SCRIPT_URL){ toast('⚠️ SCRIPT_URL ainda não configurado'); return; }
+  var btn = document.getElementById('btn-sync-capa');
+  var textoOriginal = btn.textContent;
+  btn.disabled = true; btn.textContent = '🔄 Atualizando...';
+  sincronizar();
+  buscarNuvem(function(){
+    renderLoginTotais();
+    toast('✅ Dados atualizados');
+    btn.disabled = false; btn.textContent = textoOriginal;
+  });
 }
 
 function sincronizarManual(){
