@@ -167,6 +167,9 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(180deg,#eef2f7
 .bar-track{flex:1;background:var(--cinza2);border-radius:6px;height:14px;overflow:hidden}
 .bar-fill{height:100%;background:linear-gradient(90deg,var(--pri3),var(--pri));border-radius:6px;transition:width .3s}
 .bar-value{width:46px;flex-shrink:0;text-align:right;font-size:12px;font-weight:800;color:var(--pri)}
+.bar-fill-split{height:100%;display:flex;border-radius:6px;overflow:hidden;transition:width .3s}
+.bar-seg-pend{height:100%;background:#e53935}
+.bar-seg-repr{height:100%;background:#8a8f98}
 
 /* OFFLINE / SYNC */
 .offline-bar{position:fixed;top:0;left:0;right:0;z-index:400;background:#b71c1c;color:#fff;text-align:center;font-size:12px;font-weight:600;padding:5px 12px;display:none}
@@ -1126,6 +1129,26 @@ function barChartHTML(labels, valores){
   }).join('');
 }
 
+// Mesma barra, mas dividida proporcionalmente entre pendente (vermelho) e reprovada (cinza) —
+// o comprimento total da barra continua na mesma escala (maior valor = barra cheia), só o
+// preenchimento interno vira dois segmentos lado a lado, proporcionais entre si.
+function barChartSplitHTML(labels, pendentes, reprovadas){
+  var totais = labels.map(function(_,i){ return (pendentes[i]||0)+(reprovadas[i]||0); });
+  var max = Math.max.apply(null, totais.concat([1]));
+  return labels.map(function(lbl,i){
+    var total = totais[i];
+    var larguraTotal = Math.round(total/max*100);
+    var pctPend = total>0 ? Math.round((pendentes[i]||0)/total*100) : 0;
+    var pctRepr = 100-pctPend;
+    return '<div class="bar-row"><div class="bar-label" title="'+lbl+'">'+lbl+'</div>'+
+      '<div class="bar-track"><div class="bar-fill-split" style="width:'+larguraTotal+'%">'+
+        (pctPend>0 ? '<span class="bar-seg-pend" style="width:'+pctPend+'%" title="Pendente: '+fmtHoras(pendentes[i])+'"></span>' : '')+
+        (pctRepr>0 ? '<span class="bar-seg-repr" style="width:'+pctRepr+'%" title="Reprovada: '+fmtHoras(reprovadas[i])+'"></span>' : '')+
+      '</div></div>'+
+      '<div class="bar-value">'+fmtHoras(total)+'</div></div>';
+  }).join('');
+}
+
 function renderRelatorioMensal(){
   var escopoArea = STATE.papel==='area';
   var escopoFilial = STATE.papel==='posto';
@@ -1175,15 +1198,21 @@ function renderRelatorioMensal(){
   });
   var porPostoNaoAprovado = {};
   listaNaoAprovada.forEach(function(s){
-    if(!porPostoNaoAprovado[s.fil]) porPostoNaoAprovado[s.fil] = {total:0, itens:[]};
-    porPostoNaoAprovado[s.fil].total += parseFloat(s.quantidade||0);
+    if(!porPostoNaoAprovado[s.fil]) porPostoNaoAprovado[s.fil] = {total:0, pendente:0, reprovada:0, itens:[]};
+    var q = parseFloat(s.quantidade||0);
+    porPostoNaoAprovado[s.fil].total += q;
+    if(s.status==='pendente_area' || s.status==='pendente_operacoes') porPostoNaoAprovado[s.fil].pendente += q;
+    else porPostoNaoAprovado[s.fil].reprovada += q;
     porPostoNaoAprovado[s.fil].itens.push(s);
   });
   var totalNaoAprovado = listaNaoAprovada.reduce(function(acc,s){ return acc+parseFloat(s.quantidade||0); },0);
   var filsNao = Object.keys(porPostoNaoAprovado).sort(function(a,b){ return porPostoNaoAprovado[b].total-porPostoNaoAprovado[a].total; });
   if(filsNao.length){
-    html += '<div class="card"><div class="card-title">⏳ Horas não aprovadas por posto <span style="text-transform:none;font-weight:400;font-size:11px">('+fmtHoras(totalNaoAprovado)+' no total — pendente ou reprovada)</span></div>'+
-      (escopoFilial ? '' : barChartHTML(filsNao.map(function(f){ return 'Fil.'+f; }), filsNao.map(function(f){ return porPostoNaoAprovado[f].total; })))+
+    html += '<div class="card"><div class="card-title">⏳ Horas não aprovadas por posto <span style="text-transform:none;font-weight:400;font-size:11px">('+fmtHoras(totalNaoAprovado)+' no total)</span></div>'+
+      '<div style="display:flex;gap:14px;font-size:11px;font-weight:700;margin-bottom:8px">'+
+        '<span style="color:#e53935">■ Pendente</span><span style="color:#8a8f98">■ Reprovada</span>'+
+      '</div>'+
+      (escopoFilial ? '' : barChartSplitHTML(filsNao.map(function(f){ return 'Fil.'+f; }), filsNao.map(function(f){ return porPostoNaoAprovado[f].pendente; }), filsNao.map(function(f){ return porPostoNaoAprovado[f].reprovada; })))+
       '</div>';
     html += '<div class="card"><div class="card-title">Detalhamento — não aprovadas <span style="text-transform:none;font-weight:400;font-size:11px">(toque pra ver o histórico completo)</span></div>';
     filsNao.forEach(function(fil){
