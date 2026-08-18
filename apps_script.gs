@@ -116,6 +116,22 @@ function doGet(e){
 }
 
 function doPost(e){
+  // Trava a execução: sem isso, duas sincronizações simultâneas (dois aparelhos, ou um
+  // retry do mesmo aparelho) rodam o "apaga as linhas do ID, depois insere de novo" ao
+  // mesmo tempo. Cada execução lê a planilha ANTES da outra terminar de apagar, então
+  // nenhuma das duas vê a linha nova que a outra acabou de inserir — sobra linha
+  // duplicada com o mesmo ID. Foi isso que causou solicitações já aprovadas aparecendo
+  // como pendente de novo: bastava uma sincronização futura tocar só numa das cópias.
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try{
+    return doPostSemTrava(e);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function doPostSemTrava(e){
   var body = JSON.parse(e.postData.contents);
 
   if(body.postos){

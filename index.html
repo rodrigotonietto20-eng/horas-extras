@@ -369,6 +369,14 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(180deg,#eef2f7
           <button class="btn btn-primary btn-full btn-sm" onclick="adicionarFilial()">+ Adicionar Filial</button>
         </div>
       </div>
+      <div class="card hidden" id="card-manutencao">
+        <div class="card-title">🧹 Manutenção</div>
+        <div style="font-size:12px;color:var(--txt2);margin-bottom:10px">
+          Remove linhas duplicadas da planilha (mesmo ID gravado 2x por sincronizações simultâneas).
+          Não apaga nenhuma solicitação — só junta as cópias numa linha só.
+        </div>
+        <button class="btn btn-secondary btn-full" onclick="limparDuplicatas()">🧹 Limpar duplicatas</button>
+      </div>
       <div class="card">
         <div class="card-title">ℹ️ Sobre</div>
         <div style="font-size:13px;color:var(--txt2);line-height:1.6">
@@ -624,6 +632,36 @@ function buscarNuvem(onDone){
       if(json.ok){ if(onDone) onDone(); else refreshVisibleScreen(); }
     })
     .catch(function(){});
+}
+
+// Botão "Limpar duplicatas" (tela Config, só gerente/diretor) — corrige linhas duplicadas
+// já existentes na planilha, causadas por sincronizações simultâneas antes do LockService
+// ser adicionado no apps_script.gs. Busca o estado real da nuvem, acha IDs repetidos,
+// reenvia UMA cópia de cada: o próprio upsert do doPost (apaga-tudo-com-esse-ID, insere-1x)
+// já resolve a duplicidade sozinho. Não precisa reimplantar nada no Apps Script pra isso.
+function limparDuplicatas(){
+  if(!SCRIPT_URL){ toast('⚠️ SCRIPT_URL ainda não configurado'); return; }
+  toast('🔍 Verificando duplicatas...');
+  fetch(SCRIPT_URL+'?t='+Date.now())
+    .then(function(r){ return r.json(); })
+    .then(function(json){
+      if(!json.ok || !json.solicitacoes){ toast('❌ Falha ao ler dados da nuvem'); return; }
+      var contagem = {};
+      json.solicitacoes.forEach(function(s){ contagem[s.id] = (contagem[s.id]||0)+1; });
+      var seen = {}, payload = [];
+      json.solicitacoes.forEach(function(s){
+        if(contagem[s.id]>1 && !seen[s.id]){ seen[s.id]=true; payload.push(s); }
+      });
+      if(!payload.length){ toast('✅ Nenhuma duplicata encontrada'); return; }
+      toast('🧹 Corrigindo '+payload.length+' duplicata(s)...');
+      fetch(SCRIPT_URL, { method:'POST', mode:'no-cors', body: JSON.stringify({solicitacoes:payload}), headers:{'Content-Type':'application/json'} })
+        .then(function(){
+          toast('✅ '+payload.length+' duplicata(s) corrigida(s)');
+          buscarNuvem();
+        })
+        .catch(function(){ toast('❌ Falha ao enviar correção'); });
+    })
+    .catch(function(){ toast('❌ Falha ao ler dados da nuvem'); });
 }
 
 function refreshVisibleScreen(){
@@ -1267,6 +1305,8 @@ function renderConfig(){
   // Cadastrar filial: só gerente (área/operações/diretor) — o posto não gerencia o catálogo
   var cardFilial = document.getElementById('card-nova-filial');
   cardFilial.classList.toggle('hidden', STATE.tipoUsuario!=='gerente');
+  var cardManut = document.getElementById('card-manutencao');
+  cardManut.classList.toggle('hidden', STATE.tipoUsuario!=='gerente');
   if(STATE.tipoUsuario==='gerente'){
     var sel = document.getElementById('nova-filial-area');
     sel.innerHTML = Object.keys(POSTOS).map(function(a){ return '<option value="'+a+'">'+a+'</option>'; }).join('');
