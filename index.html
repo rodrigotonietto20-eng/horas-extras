@@ -648,10 +648,18 @@ function limparDuplicatas(){
       if(!json.ok || !json.solicitacoes){ toast('❌ Falha ao ler dados da nuvem'); return; }
       var contagem = {};
       json.solicitacoes.forEach(function(s){ contagem[s.id] = (contagem[s.id]||0)+1; });
-      var seen = {}, payload = [];
+      // Entre cópias duplicadas do mesmo ID, mantém a que tem o histórico mais avançado —
+      // NUNCA a primeira que aparecer. Linhas novas sempre são inseridas no fim da planilha,
+      // então "a primeira cópia" tende a ser a mais ANTIGA (ex: ainda pendente_operacoes, de
+      // antes da aprovação), e escolhê-la sem critério jogava fora a cópia já aprovada mais
+      // recente — foi exatamente isso que reverteu aprovações em massa em 2026-08-18/19.
+      var melhor = {};
       json.solicitacoes.forEach(function(s){
-        if(contagem[s.id]>1 && !seen[s.id]){ seen[s.id]=true; payload.push(s); }
+        if(contagem[s.id]<=1) return;
+        var atual = melhor[s.id];
+        if(!atual || (s.historico||[]).length > (atual.historico||[]).length) melhor[s.id] = s;
       });
+      var payload = Object.keys(melhor).map(function(id){ return melhor[id]; });
       if(!payload.length){ toast('✅ Nenhuma duplicata encontrada'); return; }
       toast('🧹 Corrigindo '+payload.length+' duplicata(s)...');
       fetch(SCRIPT_URL, { method:'POST', mode:'no-cors', body: JSON.stringify({solicitacoes:payload}), headers:{'Content-Type':'application/json'} })
