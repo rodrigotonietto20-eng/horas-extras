@@ -581,13 +581,25 @@ function sincronizar(){
   if(!navigator.onLine){ localStorage.setItem('he_sync_pending','1'); updateSyncBar(); return; }
   fetch(SCRIPT_URL, { method:'POST', mode:'no-cors', body: JSON.stringify({solicitacoes:data}), headers:{'Content-Type':'application/json'} })
     .then(function(){
-      // Limpa o local após o envio: sem isso, este aparelho reenviaria pra sempre a versão
-      // antiga de cada solicitação que ele já tocou, sobrescrevendo aprovações feitas por
-      // outros dispositivos depois. loadAll() volta a confiar no cache (he_cache), atualizado
-      // pela próxima buscarNuvem() com o estado real e mais recente da planilha.
-      saveLocal([]);
-      localStorage.removeItem('he_sync_pending'); updateSyncBar();
-      buscarNuvem(); // atualiza o cache já com o estado mais recente, evitando um piscar de tela desatualizada
+      // mode:'no-cors' não deixa o app ler a resposta — a Promise resolve mesmo se o POST
+      // falhar de verdade no servidor (ex: LockService estourou os 30s de espera por causa
+      // de muita gente sincronizando ao mesmo tempo). Limpar o local só por causa da Promise
+      // ter resolvido foi a causa real da reversão em massa relatada pelos usuários em 08/2026:
+      // a aprovação nunca chegava na planilha, mas o app achava que tinha sincronizado e
+      // esquecia dela — no próximo buscarNuvem() a tela voltava a mostrar pendente.
+      // Agora só remove do local o que CONFIRMADAMENTE chegou na nuvem com o status certo;
+      // o resto fica no local e é reenviado sozinho no próximo ciclo (ver setInterval).
+      buscarNuvem(function(){
+        var porId = {};
+        loadCache().forEach(function(c){ porId[c.id] = c; });
+        var aindaPendente = data.filter(function(s){
+          var c = porId[s.id];
+          return !c || c.status !== s.status;
+        });
+        saveLocal(aindaPendente);
+        localStorage.removeItem('he_sync_pending'); updateSyncBar();
+        refreshVisibleScreen();
+      });
     })
     .catch(function(){ localStorage.setItem('he_sync_pending','1'); updateSyncBar(); });
 }
@@ -1385,6 +1397,10 @@ document.addEventListener('DOMContentLoaded', function(){
   // reavalia se há solicitação nova que mereça notificação (alerta em cadeia área→operações→diretor)
   setInterval(function(){
     if(!STATE.usuario) return;
+    // Reenvia qualquer aprovação/mudança que ainda não tenha sido confirmada na nuvem
+    // (ver sincronizar()) antes de buscar — sem isso, uma sincronização que falhou
+    // silenciosamente só seria reenviada na próxima vez que a pessoa tocasse em algo.
+    if(loadLocal().length) sincronizar();
     buscarNuvem(function(){ refreshVisibleScreen(); verificarNotificacoes(); });
   }, 2*60*1000);
 });
