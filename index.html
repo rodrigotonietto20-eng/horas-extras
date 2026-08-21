@@ -344,6 +344,11 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(180deg,#eef2f7
       <div id="relatorio-diario-content"></div>
     </div>
 
+    <!-- ===== DIRETOR: Funil de aprovação ===== -->
+    <div id="screen-funil" class="screen hidden">
+      <div id="funil-content"></div>
+    </div>
+
     <!-- ===== DIRETOR: Relatório Mensal ===== -->
     <div id="screen-relatorio-mensal" class="screen hidden">
       <div class="rel-nav">
@@ -688,6 +693,7 @@ function refreshVisibleScreen(){
   switch(STATE.screen){
     case 'pendentes': renderPendentes(); break;
     case 'historico': renderHistorico(); break;
+    case 'funil': renderFunil(); break;
     case 'relatorio-diario': renderRelatorioDiario(); break;
     case 'relatorio-mensal': renderRelatorioMensal(); break;
   }
@@ -806,7 +812,7 @@ function abrirAppShell(nomeExibido){
   document.getElementById('bottom-nav').classList.remove('hidden');
   document.getElementById('user-badge').textContent = nomeExibido+' · Sair';
   montarBottomNav();
-  var primeiraTela = STATE.papel==='diretor' ? 'relatorio-diario' : 'pendentes';
+  var primeiraTela = STATE.papel==='diretor' ? 'funil' : 'pendentes';
   var btn = document.querySelector('.nav-btn[data-screen="'+primeiraTela+'"]');
   navTo(primeiraTela, btn);
   // Posto também recebe notificação agora (decisão final da Área/Operações sobre a
@@ -845,6 +851,7 @@ function montarBottomNav(){
     ];
   } else if(STATE.papel==='diretor'){
     itens = [
+      {screen:'funil', ico:'🔻', label:'Funil'},
       {screen:'relatorio-diario', ico:'📅', label:'Diário'},
       {screen:'relatorio-mensal', ico:'📊', label:'Mensal'},
       {screen:'config', ico:'⚙️', label:'Config'}
@@ -874,6 +881,10 @@ function navTo(name, btn){
   if(name==='nova-solicitacao') setupNovaSolicitacao();
   if(name==='pendentes'){ renderPendentes(); buscarNuvem(function(){ if(STATE.screen==='pendentes') renderPendentes(); }); }
   if(name==='historico') renderHistorico();
+  if(name==='funil'){
+    renderFunil();
+    buscarNuvem(function(){ if(STATE.screen==='funil') renderFunil(); });
+  }
   if(name==='relatorio-diario'){
     document.getElementById('rel-dia-input').value = STATE.relDia;
     renderRelatorioDiario();
@@ -1160,6 +1171,69 @@ function renderRelatorioDiario(){
       '</div>';
   }
   document.getElementById('relatorio-diario-content').innerHTML = html;
+}
+
+// ==================== FUNIL (Diretor, 2026-08-21) ====================
+// Painel só do Diretor pra acompanhar as duas etapas de aprovação (Área → Operações) lado a
+// lado, sem precisar comparar telas diferentes. Motivo de existir: confusão real do Diretor
+// comparando "pendente do Luiz" com "pendente dos gerentes de área" achando que deveriam
+// fechar — são filas sequenciais (posto→área→operações), não a mesma população, então nunca
+// batem. Esse painel deixa a diferença entre as duas etapas explícita, evitando a dúvida.
+function renderFunil(){
+  var todos = loadAll().filter(function(s){ return s.status!=='excluido'; });
+  var mes = mesAtual();
+  var doMes = todos.filter(function(s){ return s.data && s.data.indexOf(mes)===0; });
+
+  var pendArea = todos.filter(function(s){ return s.status==='pendente_area'; });
+  var pendOp = todos.filter(function(s){ return s.status==='pendente_operacoes'; });
+  var aprovMes = doMes.filter(function(s){ return s.status==='aprovado'; });
+  var somaH = function(arr){ return arr.reduce(function(acc,s){ return acc+parseFloat(s.quantidade||0); },0); };
+
+  var maisAntiga = null;
+  pendArea.concat(pendOp).forEach(function(s){
+    var h = s.historico && s.historico.length ? s.historico[s.historico.length-1] : null;
+    if(h && (!maisAntiga || h.em<maisAntiga)) maisAntiga = h.em;
+  });
+  var diasParada = maisAntiga ? Math.floor((Date.now()-maisAntiga)/86400000) : 0;
+
+  var html = '<div class="card">'+
+    '<div class="card-title">🔻 Funil da rede — agora</div>'+
+    '<div style="display:flex;flex-direction:column;gap:10px;font-size:13px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#fff3e0;border-radius:10px">'+
+        '<span>① Aguardando gerente de <b>área</b></span>'+
+        '<b style="color:#e65100">'+fmtHoras(somaH(pendArea))+' · '+pendArea.length+'</b></div>'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#e3f2fd;border-radius:10px">'+
+        '<span>② Aguardando <b>Operações</b> (Luiz)</span>'+
+        '<b style="color:#1565c0">'+fmtHoras(somaH(pendOp))+' · '+pendOp.length+'</b></div>'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#e8f5e9;border-radius:10px">'+
+        '<span>③ Aprovadas em '+fmtMesCurto(mes)+'</span>'+
+        '<b style="color:#2e7d32">'+fmtHoras(somaH(aprovMes))+' · '+aprovMes.length+'</b></div>'+
+    '</div>'+
+    (maisAntiga ? '<div style="margin-top:10px;font-size:12px;color:var(--txt2)">⏱️ Pendência mais antiga parada há <b>'+diasParada+' dia(s)</b></div>' : '')+
+  '</div>';
+
+  html += '<div class="card"><div class="card-title">Por gerente de área — ① aguardando eles / ② já aprovaram, aguardando Luiz</div>';
+  Object.keys(GERENTES).filter(function(k){ return GERENTES[k].papel==='area'; }).forEach(function(k){
+    var meusPendArea = pendArea.filter(function(s){ return s.area===k; });
+    var meusPendOp = pendOp.filter(function(s){ return s.area===k; });
+    html += '<div class="rel-row"><div><div class="rel-row-posto">'+GERENTES[k].label+'</div>'+
+      '<div class="rel-row-area">① '+fmtHoras(somaH(meusPendArea))+' com ele · ② '+fmtHoras(somaH(meusPendOp))+' com o Luiz</div></div>'+
+      '<div class="rel-row-horas" style="color:'+(meusPendArea.length?'#e65100':'#8a8f98')+'">'+meusPendArea.length+'</div></div>';
+  });
+  html += '</div>';
+
+  html += '<div class="card"><div class="card-title">Operações (Luiz) — por área de origem</div>';
+  if(!pendOp.length){
+    html += '<div class="empty"><div class="empty-icon">✅</div><p>Fila zerada</p></div>';
+  } else {
+    var porAreaOp = {};
+    pendOp.forEach(function(s){ porAreaOp[s.area] = (porAreaOp[s.area]||0)+parseFloat(s.quantidade||0); });
+    var areasOp = Object.keys(porAreaOp).sort(function(a,b){ return porAreaOp[b]-porAreaOp[a]; });
+    html += barChartHTML(areasOp, areasOp.map(function(a){ return porAreaOp[a]; }));
+  }
+  html += '</div>';
+
+  document.getElementById('funil-content').innerHTML = html;
 }
 
 // ==================== RELATÓRIO MENSAL (Diretor, Operações, e Área escopado) ====================
