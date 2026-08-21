@@ -581,32 +581,44 @@ function salvar(s){
 }
 
 function sincronizar(){
-  var data = loadLocal();
-  if(!data.length || !SCRIPT_URL) return;
+  var pendente = loadLocal();
+  if(!pendente.length || !SCRIPT_URL) return;
   if(!navigator.onLine){ localStorage.setItem('he_sync_pending','1'); updateSyncBar(); return; }
-  fetch(SCRIPT_URL, { method:'POST', mode:'no-cors', body: JSON.stringify({solicitacoes:data}), headers:{'Content-Type':'application/json'} })
-    .then(function(){
-      // mode:'no-cors' não deixa o app ler a resposta — a Promise resolve mesmo se o POST
-      // falhar de verdade no servidor (ex: LockService estourou os 30s de espera por causa
-      // de muita gente sincronizando ao mesmo tempo). Limpar o local só por causa da Promise
-      // ter resolvido foi a causa real da reversão em massa relatada pelos usuários em 08/2026:
-      // a aprovação nunca chegava na planilha, mas o app achava que tinha sincronizado e
-      // esquecia dela — no próximo buscarNuvem() a tela voltava a mostrar pendente.
-      // Agora só remove do local o que CONFIRMADAMENTE chegou na nuvem com o status certo;
-      // o resto fica no local e é reenviado sozinho no próximo ciclo (ver setInterval).
-      buscarNuvem(function(){
-        var porId = {};
-        loadCache().forEach(function(c){ porId[c.id] = c; });
-        var aindaPendente = data.filter(function(s){
-          var c = porId[s.id];
-          return !c || c.status !== s.status;
+  // Busca a nuvem ANTES de enviar — sem isso, um item "fantasma" no he_local (aparelho que
+  // ficou dias sem sincronizar de verdade, de antes de qualquer correção anterior) reenviava
+  // um estado antigo por cima de uma aprovação já feita por outra pessoa depois, revertendo
+  // silenciosamente. Descarta do envio qualquer item cujo histórico na nuvem já esteja MAIS
+  // avançado que o do aparelho (achado em 2026-08-21: 74 aprovações voltaram a pendente assim).
+  buscarNuvem(function(){
+    var porId = {};
+    loadCache().forEach(function(c){ porId[c.id] = c; });
+    var data = pendente.filter(function(s){
+      var c = porId[s.id];
+      return !c || (c.historico||[]).length <= (s.historico||[]).length;
+    });
+    if(data.length !== pendente.length) saveLocal(data); // já descarta os fantasmas do local
+    if(!data.length){ localStorage.removeItem('he_sync_pending'); updateSyncBar(); return; }
+    fetch(SCRIPT_URL, { method:'POST', mode:'no-cors', body: JSON.stringify({solicitacoes:data}), headers:{'Content-Type':'application/json'} })
+      .then(function(){
+        // mode:'no-cors' não deixa o app ler a resposta — a Promise resolve mesmo se o POST
+        // falhar de verdade no servidor (ex: LockService estourou os 30s de espera por causa
+        // de muita gente sincronizando ao mesmo tempo). Por isso só remove do local o que
+        // CONFIRMADAMENTE chegou na nuvem com o status certo; o resto fica e é reenviado
+        // sozinho no próximo ciclo (ver setInterval).
+        buscarNuvem(function(){
+          var porId2 = {};
+          loadCache().forEach(function(c){ porId2[c.id] = c; });
+          var aindaPendente = data.filter(function(s){
+            var c = porId2[s.id];
+            return !c || c.status !== s.status;
+          });
+          saveLocal(aindaPendente);
+          localStorage.removeItem('he_sync_pending'); updateSyncBar();
+          refreshVisibleScreen();
         });
-        saveLocal(aindaPendente);
-        localStorage.removeItem('he_sync_pending'); updateSyncBar();
-        refreshVisibleScreen();
-      });
-    })
-    .catch(function(){ localStorage.setItem('he_sync_pending','1'); updateSyncBar(); });
+      })
+      .catch(function(){ localStorage.setItem('he_sync_pending','1'); updateSyncBar(); });
+  });
 }
 
 // Botão "Atualizar dados" na capa (antes do login) — mesma lógica de sincronizarManual,
