@@ -154,7 +154,50 @@ function doPostSemTrava(e){
   if(!novas.length) return ContentService.createTextOutput(JSON.stringify({ok:true}));
 
   var sheet = getSheet();
-  var headers = sheet.getDataRange().getValues()[0];
+  var headersRaw = sheet.getDataRange().getValues()[0];
+  var headers = headersRaw.map(normalizarHeader);
+
+  // Trava anti-regressão: nenhuma escrita pode fazer uma solicitação "andar pra trás" no
+  // fluxo (ex: aprovado voltando a pendente). Isso já aconteceu de verdade em produção
+  // (2026-08-18/19 e 08-21) por causa de aparelhos com fila local (he_local) desatualizada
+  // reenviando por cima — o fix do lado do cliente (sincronizar() comparar com a nuvem antes
+  // de enviar) ajuda mas depende de todo mundo estar com a versão nova do app; um aparelho
+  // com JS antigo em cache ainda pode mandar POST velho. Esta é a barreira que realmente
+  // não pode falhar, porque roda no servidor, não importa o que o cliente mande.
+  var idCol = headers.indexOf('id');
+  if(idCol<0) idCol = 0; // mesma rede de segurança do doGet — ID é sempre a 1ª coluna
+  var historicoCol = headers.indexOf('historico');
+  if(historicoCol<0) historicoCol = 8;
+  var statusCol = headers.indexOf('status');
+  if(statusCol<0) statusCol = 7;
+
+  var dataAntes = sheet.getDataRange().getValues();
+  var existente = {}; // id -> {historicoLen, status}
+  for(var i=1;i<dataAntes.length;i++){
+    var idAtual = dataAntes[i][idCol];
+    if(!idAtual) continue;
+    var histAtual = [];
+    try{ histAtual = dataAntes[i][historicoCol] ? JSON.parse(dataAntes[i][historicoCol]) : []; }catch(err){ histAtual = []; }
+    existente[idAtual] = { historicoLen: histAtual.length, status: dataAntes[i][statusCol] };
+  }
+
+  var STATUS_TERMINAL = {aprovado:true, excluido:true};
+  var bloqueados = [];
+  novas = novas.filter(function(s){
+    var ex = existente[s.id];
+    if(!ex) return true; // solicitação nova, nunca existiu — sempre aceita
+    var histNovo = (s.historico||[]).length;
+    // Regride histórico (menos passos do que já registrado) → bloqueia.
+    if(histNovo < ex.historicoLen){ bloqueados.push(s.id); return false; }
+    // Já estava num status terminal e o incoming manda outro status diferente → bloqueia,
+    // mesmo que o histórico não tenha diminuído (ex: reenvio velho reprocessado de outro jeito).
+    if(STATUS_TERMINAL[ex.status] && s.status !== ex.status){ bloqueados.push(s.id); return false; }
+    return true;
+  });
+  if(bloqueados.length){
+    Logger.log('doPost bloqueou regressao de status para IDs: ' + bloqueados.join(', '));
+  }
+  if(!novas.length) return ContentService.createTextOutput(JSON.stringify({ok:true, bloqueados:bloqueados}));
 
   // Upsert por ID: remove as linhas cujo ID bate com algum item recebido, depois insere
   // o lote inteiro de novo. Não depende de quem está sincronizando (funciona igual pra
@@ -163,8 +206,6 @@ function doPostSemTrava(e){
   novas.forEach(function(s){ idsNovos[s.id] = true; });
 
   var data = sheet.getDataRange().getValues();
-  var idCol = headers.indexOf('ID');
-  if(idCol<0) idCol = 0; // mesma rede de segurança do doGet — ID é sempre a 1ª coluna
   for(var i=data.length-1;i>=1;i--){
     if(idsNovos[data[i][idCol]]) sheet.deleteRow(i+1);
   }

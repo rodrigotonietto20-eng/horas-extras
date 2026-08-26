@@ -558,7 +558,17 @@ function loadAll(){
   var local = loadLocal(), cache = loadCache();
   var merged = {};
   cache.forEach(function(x){ if(x.id) merged[x.id]=x; });
-  local.forEach(function(x){ if(x.id) merged[x.id]=x; }); // local sempre vence (edição ainda não sincronizada)
+  // Local só vence se estiver IGUAL OU MAIS avançado que a nuvem (histórico com o mesmo
+  // tamanho ou maior) — sem essa checagem, um item velho preso em he_local (fila que não
+  // terminou de sincronizar, ou sobra de antes de uma correção) fazia a TELA mostrar uma
+  // aprovação já feita por outra pessoa como se tivesse voltado a pendente, mesmo com a
+  // planilha real intacta. A trava de verdade contra regressão na PLANILHA é no apps_script.gs
+  // (doPost recusa historico mais curto); esta aqui é só pra tela não mentir enquanto isso.
+  local.forEach(function(x){
+    if(!x.id) return;
+    var c = merged[x.id];
+    if(!c || (x.historico||[]).length >= (c.historico||[]).length) merged[x.id]=x;
+  });
   var out = []; Object.keys(merged).forEach(function(k){ out.push(merged[k]); });
   return out;
 }
