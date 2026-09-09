@@ -1100,28 +1100,34 @@ function renderPendentes(){
 function aprovarArea(id){
   var s = getSolicitacao(id); if(!s) return;
   var obs = prompt('Observação (obrigatória) antes de aprovar e encaminhar para a Operações:');
-  if(obs===null) return; // cancelou
+  // Cancelar o prompt (ou fechar sem digitar) não fazia NADA visível — o card continuava
+  // exatamente igual, sem toast nenhum, parecendo (pra quem clicou) que a aprovação "não
+  // pegou" ou "voltou pra pendente" mesmo nunca tendo sido enviada. Toast explícito aqui
+  // deixa claro que foi cancelado e nada foi salvo, em vez de um não-evento silencioso.
+  if(obs===null){ toast('Aprovação cancelada — nada foi salvo'); return; }
   if(!obs.trim()){ toast('⚠️ Observação é obrigatória pra aprovar'); return; }
   s.status='pendente_operacoes'; addHistorico(s,'pendente_operacoes',obs.trim());
   salvar(s); toast('✅ Aprovado, encaminhado para Operações'); renderPendentes(); verificarNotificacoes();
 }
 function reprovarArea(id){
   var s = getSolicitacao(id); if(!s) return;
-  var motivo = prompt('Motivo da reprovação:'); if(motivo===null) return;
+  var motivo = prompt('Motivo da reprovação:');
+  if(motivo===null){ toast('Reprovação cancelada — nada foi salvo'); return; }
   s.status='reprovado_area'; addHistorico(s,'reprovado_area',motivo);
   salvar(s); toast('❌ Solicitação reprovada'); renderPendentes(); verificarNotificacoes();
 }
 function aprovarOperacoes(id){
   var s = getSolicitacao(id); if(!s) return;
   var obs = prompt('Observação (obrigatória) antes de aprovar esta hora extra:');
-  if(obs===null) return; // cancelou
+  if(obs===null){ toast('Aprovação cancelada — nada foi salvo'); return; }
   if(!obs.trim()){ toast('⚠️ Observação é obrigatória pra aprovar'); return; }
   s.status='aprovado'; addHistorico(s,'aprovado',obs.trim());
   salvar(s); toast('✅ Hora extra aprovada'); renderPendentes(); verificarNotificacoes();
 }
 function reprovarOperacoes(id){
   var s = getSolicitacao(id); if(!s) return;
-  var motivo = prompt('Motivo da reprovação:'); if(motivo===null) return;
+  var motivo = prompt('Motivo da reprovação:');
+  if(motivo===null){ toast('Reprovação cancelada — nada foi salvo'); return; }
   s.status='reprovado_operacoes'; addHistorico(s,'reprovado_operacoes',motivo);
   salvar(s); toast('❌ Solicitação reprovada'); renderPendentes(); verificarNotificacoes();
 }
