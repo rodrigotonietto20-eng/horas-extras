@@ -590,10 +590,32 @@ function salvar(s){
   sincronizar();
 }
 
+// Só uma sincronização por vez: aprovar vários itens em sequência disparava várias em
+// paralelo, e cada uma sobrescrevia o he_local com a sua foto antiga — apagando aprovações
+// feitas depois dela e fazendo o item reaparecer como pendente na tela até a próxima rodada
+// (foi o que fez o Fabricio reaprovar itens em 2026-09-21).
+var SYNC_EM_ANDAMENTO = false, SYNC_REPETIR = false, SYNC_INICIO = 0;
 function sincronizar(){
+  // buscarNuvem engole falhas de rede sem chamar o callback; sem o limite de 45s a trava
+  // ficaria presa pra sempre depois de uma queda de conexão.
+  if(SYNC_EM_ANDAMENTO && Date.now()-SYNC_INICIO < 45000){ SYNC_REPETIR = true; return; }
   var pendente = loadLocal();
   if(!pendente.length || !SCRIPT_URL) return;
   if(!navigator.onLine){ localStorage.setItem('he_sync_pending','1'); updateSyncBar(); return; }
+  SYNC_EM_ANDAMENTO = true; SYNC_INICIO = Date.now();
+  var fim = function(){
+    SYNC_EM_ANDAMENTO = false;
+    if(SYNC_REPETIR){ SYNC_REPETIR = false; sincronizar(); }
+  };
+  // Remove do local só os itens confirmados, na versão exata que foi enviada — nunca
+  // substitui o local inteiro, pra não perder o que foi salvo enquanto o envio rodava.
+  var removerDoLocal = function(enviados){
+    var mapa = {};
+    enviados.forEach(function(s){ mapa[s.id] = (s.historico||[]).length; });
+    saveLocal(loadLocal().filter(function(x){
+      return !(x.id in mapa) || (x.historico||[]).length > mapa[x.id];
+    }));
+  };
   // Busca a nuvem ANTES de enviar — sem isso, um item "fantasma" no he_local (aparelho que
   // ficou dias sem sincronizar de verdade, de antes de qualquer correção anterior) reenviava
   // um estado antigo por cima de uma aprovação já feita por outra pessoa depois, revertendo
@@ -606,8 +628,9 @@ function sincronizar(){
       var c = porId[s.id];
       return !c || (c.historico||[]).length <= (s.historico||[]).length;
     });
-    if(data.length !== pendente.length) saveLocal(data); // já descarta os fantasmas do local
-    if(!data.length){ localStorage.removeItem('he_sync_pending'); updateSyncBar(); return; }
+    var descartados = pendente.filter(function(s){ return data.indexOf(s)<0; });
+    if(descartados.length) removerDoLocal(descartados); // já descarta os fantasmas do local
+    if(!data.length){ localStorage.removeItem('he_sync_pending'); updateSyncBar(); fim(); return; }
     fetch(SCRIPT_URL, { method:'POST', mode:'no-cors', body: JSON.stringify({solicitacoes:data}), headers:{'Content-Type':'application/json'} })
       .then(function(){
         // mode:'no-cors' não deixa o app ler a resposta — a Promise resolve mesmo se o POST
@@ -618,16 +641,18 @@ function sincronizar(){
         buscarNuvem(function(){
           var porId2 = {};
           loadCache().forEach(function(c){ porId2[c.id] = c; });
-          var aindaPendente = data.filter(function(s){
+          var confirmados = data.filter(function(s){
             var c = porId2[s.id];
-            return !c || c.status !== s.status;
+            return c && c.status === s.status;
           });
-          saveLocal(aindaPendente);
-          localStorage.removeItem('he_sync_pending'); updateSyncBar();
+          removerDoLocal(confirmados);
+          if(loadLocal().length) localStorage.setItem('he_sync_pending','1'); else localStorage.removeItem('he_sync_pending');
+          updateSyncBar();
           refreshVisibleScreen();
+          fim();
         });
       })
-      .catch(function(){ localStorage.setItem('he_sync_pending','1'); updateSyncBar(); });
+      .catch(function(){ localStorage.setItem('he_sync_pending','1'); updateSyncBar(); fim(); });
   });
 }
 
