@@ -1041,7 +1041,16 @@ function salvarNovaSolicitacao(){
   if(!funcionario){ toast('Informe o nome do funcionário'); return; }
   if(!quantidade || quantidade<=0){ toast('Informe a quantidade de horas'); return; }
   if(!data){ toast('Informe a data'); return; }
+  // Alguns navegadores de celular deixam digitar data incompleta (já chegou "20206-08-0" na planilha).
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(data)){ toast('Data inválida — confira dia, mês e ano'); return; }
   if(!motivo){ toast('Informe o motivo'); return; }
+  // Sem posto logado a solicitação nasce sem filial/área e nenhum gerente enxerga pra aprovar
+  // (aconteceu em 16/09: 3 pedidos da Fil. 32 gravados como "Filial 0"). Bloqueia e pede novo login.
+  if(STATE.papel!=='posto' || !STATE.postoFil || !STATE.postoArea){
+    toast('⚠️ Sessão da filial perdida — entre de novo com o PIN e reenvie. Nada foi salvo.');
+    logout();
+    return;
+  }
   var s = {
     id: uid(), fil: STATE.postoFil, area: STATE.postoArea,
     funcionario: funcionario, quantidade: quantidade, motivo: motivo, data: data,
