@@ -1039,6 +1039,7 @@ function setupNovaSolicitacao(){
   document.getElementById('sol-funcionario').value='';
   document.getElementById('sol-quantidade').value='';
   document.getElementById('sol-data').value = today();
+  document.getElementById('sol-data').max = today(); // calendário não oferece dias futuros
   document.getElementById('sol-motivo').value='';
 }
 function salvarNovaSolicitacao(){
@@ -1051,6 +1052,9 @@ function salvarNovaSolicitacao(){
   if(!data){ toast('Informe a data'); return; }
   // Alguns navegadores de celular deixam digitar data incompleta (já chegou "20206-08-0" na planilha).
   if(!/^\d{4}-\d{2}-\d{2}$/.test(data)){ toast('Data inválida — confira dia, mês e ano'); return; }
+  // Hora extra só se lança depois de feita — data futura era sempre erro de digitação
+  // (ex: 28/09 lançada em 01/09, que na verdade era 28/08).
+  if(data > today()){ toast('A data não pode ser no futuro — confira dia e mês'); return; }
   if(!motivo){ toast('Informe o motivo'); return; }
   // Sem posto logado a solicitação nasce sem filial/área e nenhum gerente enxerga pra aprovar
   // (aconteceu em 16/09: 3 pedidos da Fil. 32 gravados como "Filial 0"). Bloqueia e pede novo login.
