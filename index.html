@@ -587,6 +587,7 @@ function salvar(s){
   var idx = arr.findIndex(function(x){ return x.id===s.id; });
   if(idx>=0) arr[idx]=s; else arr.push(s);
   saveLocal(arr);
+  updateSyncBar();
   sincronizar();
 }
 
@@ -749,7 +750,14 @@ function refreshVisibleScreen(){
 function updateSyncBar(){
   var bar = document.getElementById('sync-pending-bar');
   if(!bar) return;
-  bar.classList.toggle('show', !!localStorage.getItem('he_sync_pending'));
+  // Mostra quantas decisões ainda estão só neste aparelho — antes era um aviso genérico, fácil
+  // de ignorar, e a pessoa fechava o app achando que já tinha aprovado (caso Fabricio 25/09).
+  var n = loadLocal().length;
+  var mostrar = n>0 || !!localStorage.getItem('he_sync_pending');
+  bar.classList.toggle('show', mostrar);
+  if(mostrar) bar.textContent = n>0
+    ? '⏳ '+n+(n===1?' alteração ainda não enviada':' alterações ainda não enviadas')+' — não feche o app até sumir este aviso'
+    : '⏳ Dados aguardando sincronização';
 }
 
 function addHistorico(s, status, obs){
@@ -1529,14 +1537,21 @@ document.addEventListener('DOMContentLoaded', function(){
   updateSyncBar();
   renderLoginTotais();
   if(navigator.onLine && SCRIPT_URL) buscarNuvem(function(){ renderLoginTotais(); });
+  // Aprovações que ficaram presas neste aparelho (app fechado antes de enviar, internet caiu)
+  // antes só eram reenviadas pelo timer de 2 min, e só com alguém logado — quem abria o app,
+  // olhava e fechava em menos de 2 min nunca reenviava, e a aprovação parecia ter "voltado".
+  // Agora reenvia ao abrir o app e sempre que ele volta pra frente da tela.
+  if(loadLocal().length) sincronizar();
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState==='visible' && loadLocal().length) sincronizar();
+  });
   // Sincroniza com a nuvem a cada 2 min, igual ao CRM de Visitas — além de atualizar a tela,
   // reavalia se há solicitação nova que mereça notificação (alerta em cadeia área→operações→diretor)
   setInterval(function(){
-    if(!STATE.usuario) return;
     // Reenvia qualquer aprovação/mudança que ainda não tenha sido confirmada na nuvem
-    // (ver sincronizar()) antes de buscar — sem isso, uma sincronização que falhou
-    // silenciosamente só seria reenviada na próxima vez que a pessoa tocasse em algo.
+    // (ver sincronizar()) antes de buscar — independe de login, a fila é do aparelho.
     if(loadLocal().length) sincronizar();
+    if(!STATE.usuario) return;
     buscarNuvem(function(){ refreshVisibleScreen(); verificarNotificacoes(); });
   }, 2*60*1000);
 });
